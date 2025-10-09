@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>CKEditor</title>
+    <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+    <style>
+        /* Container for content */
+        body {
+            margin: 0;
+            background: #f8f9fa;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            padding: 40px 15px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 720px;
+            background: #fff;
+            box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
+            border-radius: 8px;
+            padding: 30px 35px 40px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-weight: 600;
+            text-align: center;
+            color: #222;
+            letter-spacing: 0.04em;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 0.95rem;
+            user-select: none;
+        }
+
+        select#languageSelector {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 1rem;
+            border-radius: 6px;
+            border: 1.5px solid #ccc;
+            background-color: #fff;
+            color: #333;
+            outline-offset: 2px;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            margin-bottom: 25px;
+        }
+
+        select#languageSelector:hover {
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+        }
+
+        select#languageSelector:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 8px rgba(0, 86, 179, 0.5);
+        }
+
+        /* CKEditor area */
+        #editor {
+            border: 1px solid #bbb;
+            min-height: 150px;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 30px;
+            box-sizing: border-box;
+        }
+
+        /* Output area styling */
+        #output {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11pt;
+            white-space: pre-wrap;
+            background-color: #f4f6f8;
+            border: 1.5px solid #ddd;
+            padding: 15px 18px;
+            min-height: 200px;
+            border-radius: 6px;
+            resize: vertical;
+            color: #222;
+            line-height: 1.4;
+            user-select: all;
+        }
+
+        /* Copy button */
+        button {
+            cursor: pointer;
+            padding: 10px 18px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: #fff;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            display: block;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 160px;
+            user-select: none;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 0 8px rgba(0, 86, 179, 0.5);
+        }
+
+        button:active {
+            background-color: #003f7f;
+        }
+
+        /* Responsive */
+        @media (max-width: 560px) {
+            .container {
+                padding: 25px 20px 30px;
+            }
+
+            #editor, #output {
+                font-size: 14px;
+            }
+
+            button {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Job Stealer 2000</h2>
+        <label for="languageSelector">Select Language</label>
+        <select id="languageSelector" onchange="renderOutput()">
+            <option value="en">English</option>
+            <option value="th">Thai</option>
+            <option value="zh-cn">Chinese (Simplified)</option>
+            <option value="zh-tw">Chinese (Traditional)</option>
+            <option value="ko">Korean</option>
+            <option value="ja">Japanese</option>
+        </select>
+
+        <textarea id="editor" placeholder="Paste or type content here..."></textarea>
+
+        <h2>Generated HTML Code</h2>
+        <button onclick="copyHTML()">Copy HTML Code</button>
+        <textarea id="output" readonly></textarea>
+    </div>
+
+    <script>
+        let editorInstance;
+
+        ClassicEditor
+            .create(document.querySelector('#editor'), {
+                toolbar: ['bold', 'bulletedList', 'numberedList', 'undo', 'redo'],
+            })
+            .then(editor => {
+                editorInstance = editor;
+                editor.model.document.on('change:data', () => {
+                    renderOutput();
+                });
+            })
+            .catch(error => {
+                console.error(error);
+            });
+
+        function formatHTML(html) {
+            const tab = '  ';
+            let result = '';
+            let indent = '';
+
+            html.split(/>\s*</).forEach((element) => {
+                element = element.trim();
+                if (!element) return;
+
+                if (element.startsWith('/')) indent = indent.slice(0, -tab.length);
+                result += indent + '<' + element + '>\n';
+                if (
+                    element.match(/^<?\w[^>]*[^\/]$/) &&
+                    !element.startsWith('br') &&
+                    !element.startsWith('hr') &&
+                    !element.startsWith('/')
+                ) {
+                    indent += tab;
+                }
+            });
+
+            return result.trim();
+        }
+
+        function renderOutput() {
+            const content = editorInstance.getData();
+
+            const fontMap = {
+                "en": "'Segoe UI', Verdana, Geneva, Sans-serif",
+                "th": "'Leelawadee', Arial, sans-serif",
+                "zh-cn": "'Microsoft Yahei UI', Arial, sans-serif",
+                "zh-tw": "'Microsoft JhengHei UI', Arial, sans-serif",
+                "ko": "'Malgun Gothic', Arial, sans-serif",
+                "ja": "'Yu Gothic UI', sans-serif"
+            };
+
+            const selectedLang = document.getElementById("languageSelector").value;
+            const selectedFont = fontMap[selectedLang] || "'Segoe UI'";
+
+            const style = `style="font-size: 12pt; font-family: ${selectedFont};"`;
+            let styled = content
+                .replace(/<p>/g, `<p ${style}>`)
+                .replace(/<ul>/g, `<ul ${style}>`)
+                .replace(/<li>/g, `<li ${style}>`)
+                .replace(/<i>/g, `<em>`)
+                .replace(/<\/i>/g, `</em>`)
+                .replace(/<br>/g, `<br/>`);
+
+            // Normalize spaces and remove empty lines & empty paragraphs
+            styled = styled
+                .split('\n')
+                .filter(line => line.trim() !== '') // remove empty lines
+                .join('\n')
+                .replace(/\s{2,}/g, ' ')            // Replace multiple spaces with one
+                .replace(/&nbsp;\s+/g, '')          // Remove space after &nbsp;
+                .replace(/\s+&nbsp;/g, '')          // Remove space before &nbsp;
+                .replace(/<p[^>]*>(&nbsp;|\s)*<\/p>/gi, '') // Remove empty paragraphs
+                .trim();
+
+            const formatted = formatHTML(styled);
+
+            // Remove first and last character
+            const trimmed = formatted.substring(1, formatted.length - 1);
+
+            document.getElementById('output').textContent = trimmed;
+        }
+
+        function copyHTML() {
+            const textarea = document.getElementById("output");
+            const content = textarea.value.trim();
+
+            if (!content) {
+                alert("There is no generated HTML code to copy.");
+                return;
+            }
+
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // For mobile devices
+            document.execCommand("copy");
+            alert("HTML code copied to clipboard!");
+        }
+    </script>
+</body>
+
+</html>
