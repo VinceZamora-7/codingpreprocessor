@@ -245,7 +245,7 @@ let selectedCell = null;  // Track currently selected cell in preview
  
 ClassicEditor
   .create(document.querySelector('#editor'), {
-    toolbar: ['bold', 'bulletedList', 'numberedList', 'undo', 'redo'],
+    toolbar: ['bold', 'italic', 'underline','|','bulletedList', 'numberedList', 'link', 'insertTable', '|','undo', 'redo','|', 'outdent', 'indent']
   })
   .then(editor => {
     editorInstance = editor;
