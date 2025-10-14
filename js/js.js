@@ -37,7 +37,10 @@ function applyLanguageFont() {
  
   preview.querySelectorAll("p, div, td, th, ul, ol, li").forEach((el) => {
     el.style.fontFamily = selectedFont;
-    el.style.fontSize = fontSize;
+    const isForEmail = document.getElementById("forEmail").checked;
+    if (!isForEmail) {
+      el.style.fontSize = fontSize;
+    }
   });
  
   updateHtmlOutput(selectedFont);
@@ -77,6 +80,12 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   temp.querySelectorAll("p, td, th, ul, ol, li").forEach((el) => {
     el.style.fontFamily = selectedFont;
     el.style.fontSize = fontSize;
+  });
+ 
+  temp.querySelectorAll("a").forEach((link) => {
+    link.style.textDecoration = "underline";
+    link.style.color = "#0067b8";
+    link.setAttribute("target", "_blank");
   });
  
   // Convert RGB to HEX in style attributes
