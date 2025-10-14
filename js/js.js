@@ -1,284 +1,161 @@
 let editorInstance;
 let selectedCell = null;
-let updatingFromEditor = false;
-let updatingFromPreview = false;
-
+ 
 const fontMap = {
+  en: "'Segoe UI', Arial, sans-serif",
   ja: "'Yu Gothic', sans-serif",
   ko: "'Malgun Gothic', sans-serif",
 };
-
-function getFontByLanguage(lang) {
-  return fontMap[lang] || "'Segoe UI', Arial, sans-serif";
-}
-
+ 
 ClassicEditor.create(document.querySelector("#editor"), {
   toolbar: [
     "bold",
     "italic",
-    "link",
     "bulletedList",
     "numberedList",
-    "insertTable",
     "undo",
     "redo",
+    "insertTable",
+    "link",
   ],
 })
   .then((editor) => {
     editorInstance = editor;
-
-    // CKEditor->Preview update
-    editor.model.document.on("change:data", () => {
-      if (updatingFromPreview) return; // Prevent loop
-      updatingFromEditor = true;
-      updateLivePreview();
-      updatingFromEditor = true;
-    });
-
-    editor.editing.view.document.on("paste", (evt, data) => {
-      const html = data.dataTransfer.getData("text/html");
-      if (html && html.includes("<table")) {
-        console.log("Excel table pasted with styles:", html);
-      }
-    });
-
-    const preview = document.getElementById("livePreview");
-    preview.contentEditable = "true";
-
-    // Preview->CKEditor update (debounced)
-    preview.addEventListener(
-      "input",
-      debounce(() => {
-        if (updatingFromEditor) return; // Prevent loop
-        updatingFromPreview = true;
-        // Update CKEditor data from preview content
-        editorInstance.setData(preview.innerHTML);
-        // Reapply font, output, and cell handlers
-        applyLanguageFont();
-        updateHtmlOutput();
-        bindCellClickHandlers();
-        updatingFromPreview = false;
-      }, 300)
-    );
+    editor.model.document.on("change:data", () => updateLivePreview());
   })
-  .catch(console.error);
-
-function applyLanguageFont() {
-  // const selectedLang = document.getElementById("languageSelector").value;
-  // const selectedFont = fontMap[selectedLang] || fontMap["en"];
-
-  const selectedLang = document.getElementById("languageSelector").value;
-  const selectedFont = getFontByLanguage(selectedLang);
-
-  const preview = document.getElementById("livePreview");
-
-  preview.querySelectorAll("p, td, th, ul, ol, li").forEach((el) => {
-    el.style.fontFamily = selectedFont;
-    el.style.fontSize = "13.5px";
-  });
+  .catch((error) => console.error(error));
+ 
+function renderOutput() {
+  applyLanguageFont();
 }
-
+ 
+function applyLanguageFont() {
+  const selectedLang = document.getElementById("languageSelector").value;
+  const selectedFont = fontMap[selectedLang] || fontMap["en"];
+  const fontSize = document.getElementById("fontSize").value + "px"; // ✅ define fontSize
+  const preview = document.getElementById("livePreview");
+ 
+  preview.querySelectorAll("p, div, td, th, ul, ol, li").forEach((el) => {
+    el.style.fontFamily = selectedFont;
+    el.style.fontSize = fontSize;
+  });
+ 
+  updateHtmlOutput(selectedFont);
+}
+ 
 function updateLivePreview() {
   const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
   preview.innerHTML = content.trim();
-
+ 
   preview.querySelectorAll("table").forEach((table) => {
     table.setAttribute("cellpadding", "0");
     table.setAttribute("cellspacing", "0");
-    table.style.border = "1px solid #000";
+    table.style.border = "1px solid #000000";
     table.style.borderCollapse = "collapse";
   });
-  preview.querySelectorAll("a").forEach((link) => {
-    link.style.textDecoration = "underline";
-    link.style.color = "#0067b8";
-    link.setAttribute("target", "_blank");
-  });
-
-  bindCellClickHandlers();
-  applyLanguageFont();
-  updateHtmlOutput();
-}
-
-function bindCellClickHandlers() {
-  const preview = document.getElementById("livePreview");
+ 
   preview.querySelectorAll("td, th").forEach((cell) => {
-    cell.style.border = cell.style.border || "1px solid #000";
+    cell.style.border = "1px solid #000000";
     cell.onclick = () => {
       if (selectedCell) selectedCell.classList.remove("selected");
       selectedCell = cell;
       selectedCell.classList.add("selected");
-      syncControlsWithSelectedCell();
     };
   });
+ 
+  applyLanguageFont();
 }
-
-function syncControlsWithSelectedCell() {
-  if (!selectedCell) return;
-  const style = window.getComputedStyle(selectedCell);
-  document.getElementById("fontSize").value = parseInt(style.fontSize) || 14;
-  document.getElementById("textColor").value = rgbToHex(style.color);
-  document.getElementById("bgColor").value = rgbToHex(style.backgroundColor);
-  document.getElementById("borderColor").value = style.borderColor || "#000000";
-  document.getElementById("padding").value = parseInt(style.padding) || 4;
-  document.getElementById("textAlign").value = style.textAlign || "left";
-  document.getElementById("fontSizeVal").textContent =
-    document.getElementById("fontSize").value;
-  document.getElementById("paddingVal").textContent =
-    document.getElementById("padding").value;
+ 
+function updateHtmlOutput(selectedFont = fontMap["en"]) {
+  const rawHtml = document.getElementById("livePreview").innerHTML.trim();
+  const cleanedHtml = stripFigureWrapper(rawHtml);
+ 
+  const temp = document.createElement("div");
+  temp.innerHTML = cleanedHtml;
+ 
+  temp.querySelectorAll("p, td, th, ul, ol, li").forEach((el) => {
+    el.style.fontFamily = selectedFont;
+    el.style.fontSize = fontSize;
+  });
+ 
+  // Convert RGB to HEX in style attributes
+  temp.querySelectorAll("[style]").forEach((el) => {
+    el.setAttribute("style", convertRgbToHex(el.getAttribute("style")));
+  });
+ 
+  let finalHtml = temp.innerHTML;
+ 
+  // Check if the "Is this for Email?" checkbox is checked
+  const isForEmail = document.getElementById("forEmail").checked;
+  if (isForEmail) {
+    const emailWrapper = `
+      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: 16px; font-family: 'Segoe UI'; color: #000000;">
+        ${finalHtml}
+      </div>
+    `;
+    finalHtml = emailWrapper;
+  }
+ 
+  const codeBlock = document.getElementById("htmlCodeBlock");
+  codeBlock.textContent = finalHtml;
+  Prism.highlightElement(codeBlock);
 }
-
+ 
+// New function to insert <hr> tag
+function insertDivider() {
+  const preview = document.getElementById("livePreview");
+  const hrElement = document.createElement("hr"); // Create <hr> element
+  preview.appendChild(hrElement); // Append it to the live preview
+ 
+  updateHtmlOutput(); // Update the generated HTML
+}
+ 
+function convertRgbToHex(styleString) {
+  return styleString.replace(
+    /rgb\((\d+),\s*(\d+),\s*(\d+)\)/gi,
+    (_, r, g, b) => {
+      return (
+        "#" +
+        [r, g, b]
+          .map((x) => {
+            const hex = parseInt(x).toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+          })
+          .join("")
+      );
+    }
+  );
+}
+ 
 function applyCellStyle() {
   if (!selectedCell) {
     alert("Please click on a table cell in the preview.");
     return;
   }
-  const fontSize = document.getElementById("fontSize").value;
-  const textColor = document.getElementById("textColor").value;
-  const bgColor = document.getElementById("bgColor").value;
-  const borderStyle = document.getElementById("borderStyle").value;
-  const borderColor = document.getElementById("borderColor").value;
-  const padding = document.getElementById("padding").value;
-  const textAlign = document.getElementById("textAlign").value;
-
-  selectedCell.style.fontSize = fontSize + "px";
-  selectedCell.style.color = textColor;
-  selectedCell.style.backgroundColor = bgColor;
-  selectedCell.style.border = `1px ${borderStyle} ${borderColor}`;
-  selectedCell.style.padding = padding + "px";
-  selectedCell.style.textAlign = textAlign;
-
+ 
+  selectedCell.style.fontSize =
+    document.getElementById("fontSize").value + "px";
+  selectedCell.style.color = document.getElementById("textColor").value;
+  selectedCell.style.backgroundColor = document.getElementById("bgColor").value;
+  selectedCell.style.padding = document.getElementById("padding").value + "px";
+  selectedCell.style.textAlign = document.getElementById("textAlign").value;
+ 
   updateHtmlOutput();
-
-  // Also update CKEditor with new style immediately
-  if (!updatingFromPreview) {
-    updatingFromEditor = true;
-    editorInstance.setData(document.getElementById("livePreview").innerHTML);
-    updatingFromEditor = false;
-  }
 }
-
+ 
 function clearCellStyle() {
   if (!selectedCell) {
     alert("Please click on a table cell in the preview.");
     return;
   }
+ 
   selectedCell.removeAttribute("style");
   updateHtmlOutput();
-
-  // Sync to CKEditor
-  if (!updatingFromPreview) {
-    updatingFromEditor = true;
-    editorInstance.setData(document.getElementById("livePreview").innerHTML);
-    updatingFromEditor = false;
-  }
 }
-
-function updateHtmlOutput() {
-  const rawHtml = document.getElementById("livePreview").innerHTML.trim();
-  const cleanedHtml = stripFigureWrapper(rawHtml);
-  const hexHtml = convertRgbToHexInHtml(cleanedHtml);
-
-  const selectedLang = document.getElementById("languageSelector").value;
-  const selectedFont = getFontByLanguage(selectedLang);
-
-  const temp = document.createElement("div");
-  temp.innerHTML = hexHtml;
-
-  temp.querySelectorAll("p, td, th, ul, ol, li").forEach((el) => {
-    el.style.fontFamily = selectedFont;
-    el.style.fontSize = "13.5px";
-  });
-
-  let finalHtml = temp.innerHTML;
-  let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
-
-  const firstChar = formattedHtml.charAt(0);
-  const lastChar = formattedHtml.charAt(formattedHtml.length - 1);
-  const removable = ["<", ">", '"', "'"];
-  if (removable.includes(firstChar)) formattedHtml = formattedHtml.substring(1);
-  if (removable.includes(lastChar))
-    formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
-
-  const codeBlock = document.getElementById("htmlCodeBlock");
-  codeBlock.textContent = formattedHtml;
-  Prism.highlightElement(codeBlock);
-}
-
-function formatHtml(html) {
-  const tab = "  ";
-  let result = "";
-  let indent = "";
-
-  html.split(/>\s*</).forEach((element, i) => {
-    if (i > 0) result += "\n";
-    if (element.match(/^\/\w/)) indent = indent.substring(tab.length);
-    result += indent + "<" + element + ">";
-    if (element.match(/^<?\w[^>]*[^\/]$/)) indent += tab;
-  });
-
-  return result;
-}
-
-function stripFigureWrapper(html) {
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  const figures = temp.querySelectorAll("figure.table");
-  figures.forEach((figure) => {
-    const table = figure.querySelector("table");
-    if (table) figure.replaceWith(table);
-  });
-  return temp.innerHTML;
-}
-
-function rgbToHex(rgb) {
-  const result = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(rgb);
-  return result
-    ? "#" +
-        result
-          .slice(1)
-          .map((n) => ("0" + parseInt(n).toString(16)).slice(-2))
-          .join("")
-    : rgb;
-}
-
-function convertRgbToHexInHtml(html) {
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  temp.querySelectorAll("[style]").forEach((el) => {
-    let style = el.getAttribute("style");
-    const rgbMatches = style.match(/rgb\(\d+,\s*\d+,\s*\d+\)/g);
-    if (rgbMatches) {
-      rgbMatches.forEach((rgb) => {
-        style = style.replace(rgb, rgbToHex(rgb));
-      });
-      el.setAttribute("style", style);
-    }
-  });
-  return temp.innerHTML;
-}
-
-// Debounce utility
-function debounce(func, wait) {
-  let timeout;
-  return function (...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
-}
-
-// Update slider labels
-const fontSizeSlider = document.getElementById("fontSize");
-const paddingSlider = document.getElementById("padding");
-fontSizeSlider.oninput = () => {
-  document.getElementById("fontSizeVal").textContent = fontSizeSlider.value;
-};
-paddingSlider.oninput = () => {
-  document.getElementById("paddingVal").textContent = paddingSlider.value;
-};
-
+ 
 function copyHTML() {
-  const content = document.getElementById("htmlCodeBlock").textContent.trim();
+  const content = document.getElementById("htmlOutput").textContent.trim();
   if (!content) {
     alert("There is no generated HTML code to copy.");
     return;
@@ -287,3 +164,15 @@ function copyHTML() {
     alert("HTML code copied to clipboard!");
   });
 }
+ 
+function stripFigureWrapper(html) {
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  temp.querySelectorAll("figure.table").forEach((figure) => {
+    const table = figure.querySelector("table");
+    if (table) figure.replaceWith(table);
+  });
+  return temp.innerHTML;
+}
+ 
+ 
