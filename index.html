@@ -3,10 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <title>Text-HTML tool</title>
-
     <!-- CKEditor 5 Classic -->
     <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
-
     <!-- Prism.js CSS and JS -->
     <link
       href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.css"
@@ -14,44 +12,48 @@
     />
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-html.min.js"></script>
-
+    <!-- Link external stylesheet -->
+    <link href="css/style.css" rel="stylesheet" />
     <!-- Material Icons CDN for icons -->
     <link
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
       rel="stylesheet"
     />
-
-    <!-- Link external stylesheet -->
-    <link href="css/style.css" rel="stylesheet" />
   </head>
-
   <body>
     <div class="container">
       <h2>Text-HTML tool</h2>
-
       <div class="form-group">
-        <label for="languageSelector">Select Language</label>
-        <select
-          id="languageSelector"
-          onchange="applyLanguageFont(); updateHtmlOutput();"
-        >
-          <option value="en">English</option>
-          <option value="th">Thai</option>
-          <option value="zh-cn">Chinese (Simplified)</option>
-          <option value="zh-tw">Chinese (Traditional)</option>
-          <option value="ko">Korean</option>
-          <option value="ja">Japanese</option>
-        </select>
+        <div class="form-group-column">
+          <label for="languageSelector">Select Language</label>
+          <select id="languageSelector" onchange="renderOutput()">
+            <option value="en">English</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+          </select>
+        </div>
       </div>
-
+      <div class="form-group checkbox">
+        <input type="checkbox" id="forEmail" /><label
+          for="forEmail"
+          class="forEmail"
+          >Is this for Email?</label
+        >
+      </div>
       <div id="editor"></div>
-
       <div class="table-editor-preview">
-        <!-- <div id="cellStylePanel" class="ck-toolbar">
+        <div id="cellStylePanel" class="ck-toolbar">
           <div class="ck-toolbar__items">
             <label class="ck-toolbar__item" title="Font Size">
               <span class="material-icons">format_size</span>
-              <input type="number" id="fontSize" min="8" max="36" value="14" />
+              <input
+                type="number"
+                id="fontSize"
+                min="8"
+                max="36"
+                value="13.5"
+                step="0.1"
+              />
             </label>
             <label class="ck-toolbar__item" title="Text Color">
               <span class="material-icons">format_color_text</span>
@@ -60,15 +62,6 @@
             <label class="ck-toolbar__item" title="Background Color">
               <span class="material-icons">format_color_fill</span>
               <input type="color" id="bgColor" value="#ffffff" />
-            </label>
-            <label class="ck-toolbar__item" title="Border Style">
-              <span class="material-icons">border_style</span>
-              <select id="borderStyle">
-                <option value="solid">Solid</option>
-                <option value="dashed">Dashed</option>
-                <option value="dotted">Dotted</option>
-                <option value="double">Double</option>
-              </select>
             </label>
             <label class="ck-toolbar__item" title="Padding">
               <span class="material-icons">padding</span>
@@ -82,24 +75,49 @@
                 <option value="right">Right</option>
               </select>
             </label>
+            <button onclick="insertDivider()" id="divider">
+              <span class="material-icons" style="vertical-align: middle"
+                >remove</span
+              >
+              <strong>Divider</strong>
+            </button>
           </div>
-
-          <div style="display: flex; gap: 10px; margin-top: 5px">
+          <div style="display: flex; gap: 10px; margin: 5px 0 0 5px">
             <button
               class="ck-button"
               onclick="applyCellStyle()"
               title="Apply to Selected Cell"
               style="
                 background-color: #28a745;
-                color: #fff;
-                border: none;
+                color: #ffffff;
                 outline: none;
+                border: none;
               "
             >
-              <span class="material-icons" style="vertical-align: middle"
+              <span
+                class="material-icons"
+                style="vertical-align: middle; color: #ffffff"
                 >check</span
               >
               <strong>Apply</strong>
+            </button>
+            <button
+              class="ck-button"
+              onclick="applyAllCellStyle()"
+              title="Apply to Selected Cell"
+              style="
+                background-color: #007bff;
+                color: #ffffff;
+                outline: none;
+                border: none;
+              "
+            >
+              <span
+                class="material-icons"
+                style="vertical-align: middle; color: #ffffff"
+                >done_all</span
+              >
+              <strong>Apply to All</strong>
             </button>
             <button
               class="ck-button"
@@ -107,45 +125,45 @@
               title="Clear Styling"
               style="
                 background-color: #dc3545;
-                color: #fff;
-                border: none;
+                color: #ffffff;
                 outline: none;
+                border: none;
               "
             >
-              <span class="material-icons" style="vertical-align: middle"
+              <span
+                class="material-icons"
+                style="vertical-align: middle; color: #ffffff"
                 >clear</span
               >
               <strong>Clear</strong>
             </button>
           </div>
-        </div> -->
-
+        </div>
         <div class="preview">
-          <h3 style="margin-top: 0">Live Preview</h3>
+          <h3 style="margin-top: 0px">Live Preview</h3>
           <div id="livePreview" contenteditable="true"></div>
         </div>
       </div>
-
       <h3>Generated HTML Code</h3>
       <button
         class="ck-button"
         onclick="copyHTML()"
         style="
           background-color: #007bff;
-          color: #fff;
-          border: none;
+          color: #ffffff;
           outline: none;
-          margin-bottom: 5px;
+          border: none;
         "
       >
         Copy HTML Code
       </button>
-      <pre id="htmlOutput" style="max-height: 400px; overflow: auto">
-        <code class="language-html" id="htmlCodeBlock"></code>
-      </pre>
+      <pre
+        id="htmlOutput"
+      > <code class="language-html" id="htmlCodeBlock"></code> </pre>
     </div>
-
     <!-- Link external JavaScript -->
     <script src="js/js.js"></script>
   </body>
 </html>
+ 
+ 
