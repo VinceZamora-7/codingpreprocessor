@@ -42,46 +42,49 @@
       </div>
       <div id="editor"></div>
       <div class="table-editor-preview">
-        <div id="cellStylePanel" class="ck-toolbar">
-          <div class="ck-toolbar__items">
-            <label class="ck-toolbar__item" title="Font Size">
-              <span class="material-icons">format_size</span>
-              <input
-                type="number"
-                id="fontSize"
-                min="8"
-                max="36"
-                value="13.5"
-                step="0.1"
-              />
-            </label>
-            <label class="ck-toolbar__item" title="Text Color">
-              <span class="material-icons">format_color_text</span>
-              <input type="color" id="textColor" value="#000000" />
-            </label>
-            <label class="ck-toolbar__item" title="Background Color">
-              <span class="material-icons">format_color_fill</span>
-              <input type="color" id="bgColor" value="#ffffff" />
-            </label>
-            <label class="ck-toolbar__item" title="Padding">
-              <span class="material-icons">padding</span>
-              <input type="number" id="padding" min="0" max="20" value="4" />
-            </label>
-            <label class="ck-toolbar__item" title="Text Align">
-              <span class="material-icons">format_align_left</span>
-              <select id="textAlign">
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </label>
-            <button onclick="insertDivider()" id="divider">
-              <span class="material-icons" style="vertical-align: middle"
-                >remove</span
-              >
-              <strong>Divider</strong>
-            </button>
+        <div class="lower-toolbar">
+          <div id="cellStylePanel" class="ck-toolbar">
+            <div class="ck-toolbar__items">
+              <label class="ck-toolbar__item" title="Font Size">
+                <span class="material-icons">format_size</span>
+                <input
+                  type="number"
+                  id="fontSize"
+                  min="8"
+                  max="36"
+                  value="13.5"
+                  step="0.1"
+                />
+              </label>
+              <label class="ck-toolbar__item" title="Text Color">
+                <span class="material-icons">format_color_text</span>
+                <input type="color" id="textColor" value="#000000" />
+              </label>
+              <label class="ck-toolbar__item" title="Background Color">
+                <span class="material-icons">format_color_fill</span>
+                <input type="color" id="bgColor" value="#ffffff" />
+              </label>
+              <label class="ck-toolbar__item" title="Padding">
+                <span class="material-icons">padding</span>
+                <input type="number" id="padding" min="0" max="20" value="4" />
+              </label>
+              <label class="ck-toolbar__item" title="Text Align">
+                <span class="material-icons">format_align_left</span>
+                <select id="textAlign">
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </label>
+              <button onclick="insertDivider()" id="divider">
+                <span class="material-icons" style="vertical-align: middle"
+                  >remove</span
+                >
+                <strong>Divider</strong>
+              </button>
+            </div>
           </div>
+ 
           <div style="display: flex; gap: 10px; margin: 5px 0 0 5px">
             <button
               class="ck-button"
@@ -101,7 +104,7 @@
               >
               <strong>Apply</strong>
             </button>
-            <button
+            <!-- <button
               class="ck-button"
               onclick="applyAllCellStyle()"
               title="Apply to Selected Cell"
@@ -118,7 +121,7 @@
                 >done_all</span
               >
               <strong>Apply to All</strong>
-            </button>
+            </button> -->
             <button
               class="ck-button"
               onclick="clearCellStyle()"
@@ -139,9 +142,19 @@
             </button>
           </div>
         </div>
-        <div class="preview">
-          <h3 style="margin-top: 0px">Live Preview</h3>
-          <div id="livePreview" contenteditable="true"></div>
+        <div class="preview-container">
+          <div class="preview-title">
+            <h3 style="margin-top: 0px; margin-bottom: 5px">Live Preview</h3>
+            <p style="font-size: 12px; margin-top: 0px">
+              <i
+                >To apply styles to multiple cells simultaneously, hold the Ctrl
+                (Windows) or Command (Mac) key while selecting the cells.</i
+              >
+            </p>
+          </div>
+          <div class="preview">
+            <div id="livePreview" contenteditable="true"></div>
+          </div>
         </div>
       </div>
       <h3>Generated HTML Code</h3>
