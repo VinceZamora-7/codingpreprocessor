@@ -143,8 +143,14 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
 // New function to insert <hr> tag
 function insertDivider() {
   const preview = document.getElementById("livePreview");
-  const hrElement = document.createElement("hr"); // Create <hr> element
-  preview.appendChild(hrElement); // Append it to the live preview
+  const hrElement = document.createElement("hr");
+  hrElement.style.border = "0";
+  hrElement.style.height = "1px";
+  hrElement.style.backgroundColor = "#A2A2A2";
+  hrElement.style.margin = "0";
+  hrElement.style.lineHeight = "1px";
+  hrElement.style.padding = "0px";
+  preview.appendChild(hrElement);
  
   updateHtmlOutput(); // Update the generated HTML
 }
