@@ -65,6 +65,7 @@ function updateLivePreview() {
  
   preview.querySelectorAll("td, th").forEach((cell) => {
     cell.style.border = "1px solid #000000";
+    cell.style.padding = "10px";
     cell.onclick = (event) => {
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
         // Allow multiple cell selection with Ctrl or Shift key
@@ -105,14 +106,22 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
     link.setAttribute("target", "_blank");
   });
  
-  // Convert RGB to HEX in style attributes
   temp.querySelectorAll("[style]").forEach((el) => {
     el.setAttribute("style", convertRgbToHex(el.getAttribute("style")));
   });
  
   let finalHtml = temp.innerHTML;
  
-  // Format the final HTML to make it more readable with newlines
+  const isForEmail = document.getElementById("forEmail").checked;
+  if (isForEmail) {
+    const emailWrapper = `
+      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: 16px; font-family: 'Segoe UI'; color: #000000;">
+        ${finalHtml}
+      </div>
+    `;
+    finalHtml = emailWrapper;
+  }
+ 
   let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
  
   const firstChar = formattedHtml.charAt(0);
@@ -127,6 +136,7 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
  
   const codeBlock = document.getElementById("htmlCodeBlock");
   codeBlock.textContent = formattedHtml;
+ 
   Prism.highlightElement(codeBlock);
 }
  
@@ -199,13 +209,36 @@ function clearCellStyle() {
  
 function copyHTML() {
   const content = document.getElementById("htmlOutput").textContent.trim();
+ 
+  const successCopy = document.getElementById("successCopy");
+  const failedCopy = document.getElementById("failedCopy");
+ 
+  // If there's no content, show the failed copy message
   if (!content) {
-    alert("There is no generated HTML code to copy.");
-    return;
+    failedCopy.classList.add("show");
+    successCopy.classList.remove("show"); // Hide success message if no content
+ 
+    setTimeout(() => {
+      failedCopy.classList.remove("show"); // Hide failed message after 2 seconds
+    }, 2000);
+ 
+    return; // Exit the function early if there's no content
   }
-  navigator.clipboard.writeText(content).then(() => {
-    alert("HTML code copied to clipboard!");
-  });
+ 
+  // If there is content, attempt to copy to clipboard
+  navigator.clipboard
+    .writeText(content)
+    .then(() => {
+      successCopy.classList.add("show"); // Show success message
+      failedCopy.classList.remove("show"); // Hide failed message
+ 
+      setTimeout(() => {
+        successCopy.classList.remove("show"); // Hide success message after 2 seconds
+      }, 2000);
+    })
+    .catch((err) => {
+      console.error("Error copying text: ", err);
+    });
 }
  
 function stripFigureWrapper(html) {
