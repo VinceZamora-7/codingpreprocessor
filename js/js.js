@@ -2,9 +2,9 @@ let editorInstance;
 let selectedCell = null;
  
 const fontMap = {
-  en: "'Segoe UI', Arial, sans-serif",
-  ja: "'Yu Gothic', sans-serif",
-  ko: "'Malgun Gothic', sans-serif",
+  en: "'Segoe UI'",
+  ja: "'Yu Gothic'",
+  ko: "'Malgun Gothic'",
 };
  
 ClassicEditor.create(document.querySelector("#editor"), {
@@ -35,7 +35,7 @@ function renderOutput() {
 function applyLanguageFont() {
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
-  const fontSize = document.getElementById("fontSize").value + "px"; // ✅ define fontSize
+  const fontSize = document.getElementById("fontSize").value + "pt"; // ✅ define fontSize
   const preview = document.getElementById("livePreview");
  
   preview.querySelectorAll("p, div, td, th, ul, ol, li").forEach((el) => {
