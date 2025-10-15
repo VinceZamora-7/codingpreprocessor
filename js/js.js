@@ -11,13 +11,16 @@ ClassicEditor.create(document.querySelector("#editor"), {
   toolbar: [
     "bold",
     "italic",
+    "|",
+    "link",
     "bulletedList",
     "numberedList",
+    "insertTable",
+    "|",
     "undo",
     "redo",
-    "insertTable",
-    "link",
   ],
+  placeholder: "Paste content here...",
 })
   .then((editor) => {
     editorInstance = editor;
@@ -46,6 +49,8 @@ function applyLanguageFont() {
   updateHtmlOutput(selectedFont);
 }
  
+let selectedCells = new Set(); // This will store the selected cells
+ 
 function updateLivePreview() {
   const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
@@ -60,10 +65,22 @@ function updateLivePreview() {
  
   preview.querySelectorAll("td, th").forEach((cell) => {
     cell.style.border = "1px solid #000000";
-    cell.onclick = () => {
-      if (selectedCell) selectedCell.classList.remove("selected");
-      selectedCell = cell;
-      selectedCell.classList.add("selected");
+    cell.onclick = (event) => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey) {
+        // Allow multiple cell selection with Ctrl or Shift key
+        cell.classList.toggle("selected");
+        if (cell.classList.contains("selected")) {
+          selectedCells.add(cell);
+        } else {
+          selectedCells.delete(cell);
+        }
+      } else {
+        // Clear previous selections and select only the clicked cell
+        selectedCells.forEach((c) => c.classList.remove("selected"));
+        selectedCells.clear();
+        cell.classList.add("selected");
+        selectedCells.add(cell);
+      }
     };
   });
  
@@ -95,19 +112,21 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
  
   let finalHtml = temp.innerHTML;
  
-  // Check if the "Is this for Email?" checkbox is checked
-  const isForEmail = document.getElementById("forEmail").checked;
-  if (isForEmail) {
-    const emailWrapper = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: 16px; font-family: 'Segoe UI'; color: #000000;">
-        ${finalHtml}
-      </div>
-    `;
-    finalHtml = emailWrapper;
+  // Format the final HTML to make it more readable with newlines
+  let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
+ 
+  const firstChar = formattedHtml.charAt(0);
+  const lastChar = formattedHtml.charAt(formattedHtml.length - 1);
+  const removable = ["<", ">", '"', "'"];
+  if (removable.includes(firstChar)) {
+    formattedHtml = formattedHtml.substring(1);
+  }
+  if (removable.includes(lastChar)) {
+    formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
   }
  
   const codeBlock = document.getElementById("htmlCodeBlock");
-  codeBlock.textContent = finalHtml;
+  codeBlock.textContent = formattedHtml;
   Prism.highlightElement(codeBlock);
 }
  
@@ -138,28 +157,43 @@ function convertRgbToHex(styleString) {
 }
  
 function applyCellStyle() {
-  if (!selectedCell) {
-    alert("Please click on a table cell in the preview.");
+  if (selectedCells.size === 0) {
+    alert("Please select one or more table cells in the preview.");
     return;
   }
  
-  selectedCell.style.fontSize =
-    document.getElementById("fontSize").value + "px";
-  selectedCell.style.color = document.getElementById("textColor").value;
-  selectedCell.style.backgroundColor = document.getElementById("bgColor").value;
-  selectedCell.style.padding = document.getElementById("padding").value + "px";
-  selectedCell.style.textAlign = document.getElementById("textAlign").value;
+  const fontSize = document.getElementById("fontSize").value + "px";
+  const textColor = document.getElementById("textColor").value;
+  const bgColor = document.getElementById("bgColor").value;
+  const padding = document.getElementById("padding").value + "px";
+  const textAlign = document.getElementById("textAlign").value;
+ 
+  // Apply the style to all selected cells
+  selectedCells.forEach((cell) => {
+    cell.style.fontSize = fontSize;
+    cell.style.color = textColor;
+    cell.style.backgroundColor = bgColor;
+    cell.style.padding = padding;
+    cell.style.textAlign = textAlign;
+  });
  
   updateHtmlOutput();
 }
  
 function clearCellStyle() {
-  if (!selectedCell) {
-    alert("Please click on a table cell in the preview.");
+  if (selectedCells.size === 0) {
+    alert("Please select one or more table cells in the preview.");
     return;
   }
  
-  selectedCell.removeAttribute("style");
+  // Remove styles from all selected cells
+  selectedCells.forEach((cell) => {
+    cell.removeAttribute("style");
+  });
+ 
+  // Clear the selected cells Set
+  selectedCells.clear();
+ 
   updateHtmlOutput();
 }
  
@@ -182,6 +216,21 @@ function stripFigureWrapper(html) {
     if (table) figure.replaceWith(table);
   });
   return temp.innerHTML;
+}
+ 
+function formatHtml(html) {
+  const tab = "  "; // Use two spaces for indentation
+  let result = "";
+  let indent = "";
+ 
+  html.split(/><(?=\w)/).forEach((element, i) => {
+    if (i > 0) result += "\n"; // Add a new line after each tag
+    if (element.match(/^\/\w/)) indent = indent.substring(tab.length); // Reduce indentation for closing tags
+    result += indent + "<" + element + ">";
+    if (element.match(/^<?\w[^>]*[^\/]$/)) indent += tab; // Increase indentation for opening tags
+  });
+ 
+  return result;
 }
  
  
