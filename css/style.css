@@ -65,14 +65,21 @@ input[type="color"] {
 /* Table editor preview */
 .table-editor-preview {
   display: flex;
+  flex-direction: column;
   gap: 24px;
   flex-wrap: wrap;
 }
- 
+/*
 #cellStylePanel {
   flex: 1 1 360px;
+} */
+.selected {
+  background-color: #ebebeb;
+  outline: 2px solid #007bff;
 }
- 
+.preview-title {
+  display: block;
+}
 .preview {
   flex: 1 1 580px;
   border: 1px solid #ccc;
@@ -86,20 +93,26 @@ input[type="color"] {
  
 /* CKEditor-like toolbar styling */
 .ck-toolbar {
+  /* background-color: #f2f2f2; */
   border: 1px solid #ccc;
+  border-top: none;
   padding: 10px 12px;
-  border-radius: 3px;
+  border-radius: 0px 0px 3px 3px;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   user-select: none;
 }
- 
+.ck-content {
+  background-color: #f2f2f2 !important;
+}
 .ck-toolbar h3 {
   margin: 0 0 12px 0;
   font-weight: 700;
   font-size: 16px;
   color: #2c3e50;
 }
- 
+/* .ck-toolbar_grouping {
+  background-color: #f2f2f2 !important;
+} */
 /* Toolbar items container with improved horizontal layout */
 .ck-toolbar__items {
   display: flex;
