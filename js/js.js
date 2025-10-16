@@ -1,5 +1,5 @@
 let editorInstance;
-let selectedCell = null;
+let selectedCells = new Set(); // This will store the selected cells
  
 const fontMap = {
   en: "'Segoe UI'",
@@ -49,8 +49,6 @@ function applyLanguageFont() {
   updateHtmlOutput(selectedFont);
 }
  
-let selectedCells = new Set(); // This will store the selected cells
- 
 function updateLivePreview() {
   const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
@@ -89,54 +87,60 @@ function updateLivePreview() {
 }
  
 function updateHtmlOutput(selectedFont = fontMap["en"]) {
-  const rawHtml = document.getElementById("livePreview").innerHTML.trim();
+  const preview = document.getElementById("livePreview");
+  const rawHtml = preview.innerHTML.trim();
   const cleanedHtml = stripFigureWrapper(rawHtml);
- 
+
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
- 
-  temp.querySelectorAll("p, td, th, ul, ol, li").forEach((el) => {
+
+  const fontSize = document.getElementById("fontSize").value + "px";
+  const isForEmail = document.getElementById("forEmail").checked;
+
+  // Apply font styles to all relevant elements
+  temp.querySelectorAll("p, td, th, ul, ol, li, div, span").forEach((el) => {
     el.style.fontFamily = selectedFont;
     el.style.fontSize = fontSize;
   });
- 
+
+  // Style links
   temp.querySelectorAll("a").forEach((link) => {
     link.style.textDecoration = "underline";
     link.style.color = "#0067b8";
     link.setAttribute("target", "_blank");
   });
- 
+
+  // Convert RGB to HEX in inline styles
   temp.querySelectorAll("[style]").forEach((el) => {
     el.setAttribute("style", convertRgbToHex(el.getAttribute("style")));
   });
- 
+
   let finalHtml = temp.innerHTML;
- 
-  const isForEmail = document.getElementById("forEmail").checked;
+
+  // Wrap for email if needed
   if (isForEmail) {
-    const emailWrapper = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: 16px; font-family: 'Segoe UI'; color: #000000;">
+    finalHtml = `
+      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000;">
         ${finalHtml}
       </div>
     `;
-    finalHtml = emailWrapper;
   }
- 
+
+  // Format and clean up HTML
   let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
- 
-  const firstChar = formattedHtml.charAt(0);
-  const lastChar = formattedHtml.charAt(formattedHtml.length - 1);
+
   const removable = ["<", ">", '"', "'"];
-  if (removable.includes(firstChar)) {
+  if (removable.includes(formattedHtml.charAt(0))) {
     formattedHtml = formattedHtml.substring(1);
   }
-  if (removable.includes(lastChar)) {
+  if (removable.includes(formattedHtml.charAt(formattedHtml.length - 1))) {
     formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
   }
- 
+
+  // Output to code block
   const codeBlock = document.getElementById("htmlCodeBlock");
   codeBlock.textContent = formattedHtml;
- 
+
   Prism.highlightElement(codeBlock);
 }
  
@@ -173,27 +177,37 @@ function convertRgbToHex(styleString) {
 }
  
 function applyCellStyle() {
-  if (selectedCells.size === 0) {
-    alert("Please select one or more table cells in the preview.");
-    return;
-  }
- 
-  const fontSize = document.getElementById("fontSize").value + "px";
+  const fontSize = document.getElementById("fontSize").value + "pt";
   const textColor = document.getElementById("textColor").value;
   const bgColor = document.getElementById("bgColor").value;
   const padding = document.getElementById("padding").value + "px";
   const textAlign = document.getElementById("textAlign").value;
- 
-  // Apply the style to all selected cells
-  selectedCells.forEach((cell) => {
-    cell.style.fontSize = fontSize;
-    cell.style.color = textColor;
-    cell.style.backgroundColor = bgColor;
-    cell.style.padding = padding;
-    cell.style.textAlign = textAlign;
+
+  const selectedLang = document.getElementById("languageSelector").value;
+  const selectedFont = fontMap[selectedLang] || fontMap["en"];
+
+  const preview = document.getElementById("livePreview");
+
+  // Apply styles to selected table cells
+  if (selectedCells.size > 0) {
+    selectedCells.forEach((cell) => {
+      cell.style.fontSize = fontSize;
+      cell.style.color = textColor;
+      cell.style.backgroundColor = bgColor;
+      cell.style.padding = padding;
+      cell.style.textAlign = textAlign;
+      cell.style.fontFamily = selectedFont;
+    });
+  }
+
+  // Apply font styles globally to non-table elements
+  preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
+    el.style.fontSize = fontSize;
+    el.style.color = textColor;
+    el.style.fontFamily = selectedFont;
   });
- 
-  updateHtmlOutput();
+
+  updateHtmlOutput(selectedFont);
 }
  
 function clearCellStyle() {
@@ -273,3 +287,4 @@ function formatHtml(html) {
 }
  
  
+
