@@ -77,7 +77,15 @@ input[type="color"] {
 } */
 .selected {
   background-color: #ebebeb;
-  outline: 2px solid #007bff;
+  outline: 1px solid #007bff;
+}
+.selected-non-table {
+  outline: 1px solid #0078d4; /* Microsoft blue */
+  background-color: #e6f4ff; /* Light blue background */
+}
+.selected-non-table {
+  box-shadow: 0 0 0 2px #0078d4 inset;
+  background-color: #f0f8ff;
 }
 .preview-title {
   display: block;
@@ -345,3 +353,4 @@ input[type="number"]:focus {
   opacity: 1;
   transition: all ease-in 0.5s;
 }
+
