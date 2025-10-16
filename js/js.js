@@ -94,7 +94,7 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
 
-  const fontSize = document.getElementById("fontSize").value + "px";
+  const fontSize = document.getElementById("fontSize").value + "pt";
   const isForEmail = document.getElementById("forEmail").checked;
 
   // Apply font styles to all relevant elements
@@ -287,4 +287,5 @@ function formatHtml(html) {
 }
  
  
+
 
