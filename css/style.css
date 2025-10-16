@@ -6,12 +6,15 @@ body {
   margin: 0;
   padding: 0 20px 40px;
 }
- 
+
 h2,
 h3 {
   color: #34495e;
 }
- 
+h3 {
+  margin-top: 20px !important;
+}
+
 .container {
   max-width: 960px;
   margin: 30px auto;
@@ -20,7 +23,7 @@ h3 {
   border-radius: 8px;
   padding: 20px 30px;
 }
- 
+
 /* Form group styling */
 .form-group {
   display: flex;
@@ -28,20 +31,19 @@ h3 {
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
- 
+
 .form-group-column {
   display: flex;
   flex-direction: column;
   min-width: 160px;
 }
- 
+
 label {
   font-weight: 600;
-  margin-bottom: 6px;
   font-size: 14px;
   color: #34495e;
 }
- 
+
 select,
 input[type="color"] {
   height: 32px;
@@ -52,7 +54,7 @@ input[type="color"] {
   cursor: pointer;
   background: #fff;
 }
- 
+
 /* CKEditor container */
 #editor {
   border: 1px solid #ccc;
@@ -61,7 +63,7 @@ input[type="color"] {
   margin-bottom: 30px;
   background: #fff;
 }
- 
+
 /* Table editor preview */
 .table-editor-preview {
   display: flex;
@@ -69,7 +71,7 @@ input[type="color"] {
   gap: 24px;
   flex-wrap: wrap;
 }
-/*
+/* 
 #cellStylePanel {
   flex: 1 1 360px;
 } */
@@ -83,21 +85,19 @@ input[type="color"] {
 .preview {
   flex: 1 1 580px;
   border: 1px solid #ccc;
-  border-radius: 6px;
+  border-radius: 0px 0px 3px 3px;
   padding: 12px;
   min-height: 250px;
   background: #fbfcfd;
   box-shadow: inset 0 0 8px rgb(0 0 0 / 0.03);
   overflow: auto;
 }
- 
-/* CKEditor-like toolbar styling */
+
 .ck-toolbar {
-  /* background-color: #f2f2f2; */
   border: 1px solid #ccc;
-  border-top: none;
+  border-bottom: none;
   padding: 10px 12px;
-  border-radius: 0px 0px 3px 3px;
+  border-radius: 3px 3px 0px 0px;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   user-select: none;
 }
@@ -110,17 +110,19 @@ input[type="color"] {
   font-size: 16px;
   color: #2c3e50;
 }
-/* .ck-toolbar_grouping {
-  background-color: #f2f2f2 !important;
-} */
+.lower-toolbar-items {
+  display: flex;
+  gap: 20px;
+}
 /* Toolbar items container with improved horizontal layout */
-.ck-toolbar__items {
+#cellStylePanel .ck-toolbar__items {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 16px;
+  gap: 14px;
+  justify-content: space-between;
   align-items: center;
 }
- 
+
 /* Each toolbar item horizontally aligned */
 .ck-toolbar__item {
   display: flex;
@@ -130,14 +132,14 @@ input[type="color"] {
   color: #444;
   min-width: 100px;
 }
- 
+
 /* Material icon style */
 .material-icons {
   font-size: 20px;
   color: #666;
   user-select: none;
 }
- 
+
 /* Inputs and selects styling */
 .ck-toolbar__item input[type="number"],
 .ck-toolbar__item input[type="color"],
@@ -153,14 +155,14 @@ input[type="color"] {
   min-height: 29px;
   transition: border-color 0.2s ease;
 }
- 
+
 .ck-toolbar__item input[type="number"]:focus,
 .ck-toolbar__item input[type="color"]:focus,
 .ck-toolbar__item select:focus {
   border-color: #4a90e2;
   outline: none;
 }
- 
+
 /* Buttons with inline icon and text */
 .ck-button {
   display: flex;
@@ -177,17 +179,17 @@ input[type="color"] {
   white-space: nowrap;
   user-select: none;
 }
- 
+
 .ck-button:hover {
   background-color: #d3d3d3;
   border-color: #999;
 }
- 
+
 .ck-button:focus {
   outline: 2px solid #4a90e2;
   outline-offset: 2px;
 }
- 
+
 .ck-button .material-icons {
   font-size: 20px;
   vertical-align: middle;
@@ -205,7 +207,7 @@ input[type="color"] {
   background-color: #007bff;
   border-color: #007bff;
 }
- 
+
 /* HTML code styling */
 #htmlOutput {
   border-radius: 6px;
@@ -217,7 +219,7 @@ input[type="color"] {
   font-family: "Courier New", Courier;
   margin-top: 10px;
 }
- 
+
 .form-group {
   display: flex;
   gap: 20px;
@@ -236,7 +238,7 @@ input[type="color"] {
   font-size: 0.95rem;
   user-select: none;
 }
- 
+
 select,
 input[type="number"],
 input[type="color"] {
@@ -266,16 +268,15 @@ input[type="color"] {
   box-sizing: border-box;
   outline: none;
   align-self: center;
-  margin-bottom: 5px;
 }
- 
+
 select:hover,
 input[type="color"]:hover,
 input[type="number"]:hover {
   border-color: #007bff;
   box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
 }
- 
+
 select:focus,
 input[type="color"]:focus,
 input[type="number"]:focus {
@@ -287,24 +288,44 @@ input[type="number"]:focus {
   gap: 10px;
   align-items: center;
 }
-#successCopy {
-  background-color: #28a745;
-  border-radius: 5px;
-  color: #ffffff !important;
+#selectCell {
+  background-color: #ffe1e3;
+  color: #f9485a !important;
+  border-left: 2px solid #ff4558;
   vertical-align: middle;
-  padding: 8px 16px;
+  padding: 5px 16px;
   font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 2;
+  display: none;
+  opacity: 0;
+  transition: all ease-in 0.5s;
+}
+#successCopy {
+  background-color: #c2f3d6;
+  color: #30d472 !important;
+  border-left: 2px solid #30d472;
+  vertical-align: middle;
+  padding: 5px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 2;
   display: none;
   opacity: 0;
   transition: all ease-in 0.5s;
 }
 #failedCopy {
-  background-color: #dc3546;
-  border-radius: 5px;
-  color: #ffffff !important;
+  background-color: #ffe1e3;
+  color: #f9485a !important;
+  border-left: 2px solid #ff4558;
   vertical-align: middle;
-  padding: 8px 16px;
+  padding: 5px 16px;
   font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 2;
   display: none;
   opacity: 0;
   transition: all ease-in 0.5s;
@@ -315,9 +336,12 @@ input[type="number"]:focus {
   transition: all ease-in 0.5s;
 }
 #failedCopy.show {
-  display: inline; /* Show the icon when the class is added */
-  opacity: 1; /* Fade in */
+  display: inline;
+  opacity: 1;
   transition: all ease-in 0.5s;
 }
- 
- 
+#selectCell.show {
+  display: inline;
+  opacity: 1;
+  transition: all ease-in 0.5s;
+}
