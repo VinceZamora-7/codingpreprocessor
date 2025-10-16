@@ -1,5 +1,6 @@
 let editorInstance;
-let selectedCell = null;
+let selectedCells = new Set(); // This will store the selected cells
+let selectedNonTableElements = new Set(); // Store multiple non-table elements
 
 const fontMap = {
   en: "'Segoe UI'",
@@ -49,14 +50,13 @@ function applyLanguageFont() {
   updateHtmlOutput(selectedFont);
 }
 
-let selectedCells = new Set(); // This will store the selected cells
-
 function updateLivePreview() {
   const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
   preview.innerHTML = content.trim();
 
   preview.querySelectorAll("table").forEach((table) => {
+    table.setAttribute("role", "presentation");
     table.setAttribute("cellpadding", "0");
     table.setAttribute("cellspacing", "0");
     table.style.border = "1px solid #000000";
@@ -85,12 +85,37 @@ function updateLivePreview() {
     };
   });
 
+  preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
+    el.onclick = (event) => {
+      event.stopPropagation();
+
+      if (event.ctrlKey || event.metaKey || event.shiftKey) {
+        // Toggle selection
+        el.classList.toggle("selected-non-table");
+        if (el.classList.contains("selected-non-table")) {
+          selectedNonTableElements.add(el);
+        } else {
+          selectedNonTableElements.delete(el);
+        }
+      } else {
+        // Clear previous selections and select only the clicked element
+        selectedNonTableElements.forEach((e) =>
+          e.classList.remove("selected-non-table")
+        );
+        selectedNonTableElements.clear();
+        el.classList.add("selected-non-table");
+        selectedNonTableElements.add(el);
+      }
+    };
+  });
+
   applyLanguageFont();
 }
 
 function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const rawHtml = document.getElementById("livePreview").innerHTML.trim();
   const cleanedHtml = stripFigureWrapper(rawHtml);
+  const fontSize = document.getElementById("fontSize").value + "pt";
 
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
@@ -173,9 +198,6 @@ function convertRgbToHex(styleString) {
 }
 
 function applyCellStyle() {
-  const selectCell = document.getElementById("selectCell");
-  const preview = document.getElementById("livePreview");
-
   const fontSize = document.getElementById("fontSize").value + "pt";
   const textColor = document.getElementById("textColor").value;
   const bgColor = document.getElementById("bgColor").value;
@@ -185,53 +207,53 @@ function applyCellStyle() {
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
 
-  if (!preview.hasChildNodes() || preview.innerHTML.trim() === "") {
-    selectCell.classList.add("show");
+  const preview = document.getElementById("livePreview");
 
-    setTimeout(() => {
-      selectCell.classList.remove("show");
-    }, 3000);
-  } else {
-    if (selectedCells.size > 0) {
-      selectedCells.forEach((cell) => {
-        cell.style.fontSize = fontSize;
-        cell.style.color = textColor;
-        cell.style.backgroundColor = bgColor;
-        cell.style.padding = padding;
-        cell.style.textAlign = textAlign;
-        cell.style.fontFamily = selectedFont;
-      });
-    }
+  // Apply styles to selected table cells
+  if (selectedCells.size > 0) {
+    selectedCells.forEach((cell) => {
+      cell.style.fontSize = fontSize;
+      cell.style.color = textColor;
+      cell.style.backgroundColor = bgColor;
+      cell.style.padding = padding;
+      cell.style.textAlign = textAlign;
+      cell.style.fontFamily = selectedFont;
+    });
+  }
 
-    preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
+  if (selectedNonTableElements.size > 0) {
+    selectedNonTableElements.forEach((el) => {
       el.style.fontSize = fontSize;
       el.style.color = textColor;
+      el.style.textAlign = textAlign;
       el.style.fontFamily = selectedFont;
     });
   }
 
-  updateHtmlOutput();
+  updateHtmlOutput(selectedFont);
 }
 
 function clearCellStyle() {
-  const selectCell = document.getElementById("selectCell");
   const preview = document.getElementById("livePreview");
 
-  selectedCells.forEach((cell) => {
-    cell.removeAttribute("style");
-  });
-
-  selectedCells.clear();
-
-  if (!preview.hasChildNodes() || preview.innerHTML.trim() === "") {
-    selectCell.classList.add("show");
-
-    setTimeout(() => {
-      selectCell.classList.remove("show");
-    }, 3000);
+  // Remove styles from selected table cells
+  if (selectedCells.size > 0) {
+    selectedCells.forEach((cell) => {
+      cell.removeAttribute("style");
+    });
+    selectedCells.clear();
   }
 
-  updateHtmlOutput();
+  // Remove styles from the selected non-table element only
+  if (selectedNonTableElements.size > 0) {
+    selectedNonTableElements.forEach((el) => {
+      el.removeAttribute("style");
+      el.classList.remove("selected-non-table");
+    });
+    selectedNonTableElements.clear();
+  }
+
+  updateHtmlOutput(selectedFont);
 }
 
 function copyHTML() {
@@ -291,3 +313,4 @@ function formatHtml(html) {
 
   return result;
 }
+
