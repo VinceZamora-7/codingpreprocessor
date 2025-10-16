@@ -1,8 +1,4 @@
-It looks like you have a well-developed **HTML/Email Template Generator** tool built on CKEditor 5. It handles language-specific fonts, applies email-safe table styles, converts RGB to HEX colors, and includes a cell selection/styling feature.
 
-Here is a README draft, focusing on the tool's purpose, features, and how to use it.
-
------
 
 # HTML & Email Template Generator
 
@@ -10,7 +6,7 @@ This is a client-side web application designed to create clean, cross-client com
 
 ## ✨ Features
 
-  * **Rich Text Editing:** Uses CKEditor 5 for a robust WYSIWYG editing experience (Bold, Italic, Lists, Links, Tables).
+  * **Rich Text Editing:** Uses Toolbar 5 for a robust editing experience (Bold, Italic, Lists, Links, Tables).
   * **Email Optimization:** Optional wrapper adds email-safe styles (e.g., `line-height`, `margin`) to the output HTML.
   * **Language-Specific Fonts:** Automatically applies the most compatible font for selected languages:
       * **English:** 'Segoe UI'
@@ -22,8 +18,7 @@ This is a client-side web application designed to create clean, cross-client com
       * Padding
       * Text Alignment
   * **Automatic Cleanup:**
-      * Removes CKEditor's default `<figure class="table">` wrapper, leaving clean `<table>` markup.
-      * Converts all inline `rgb()` color declarations to **HEX** values for better email client compatibility.
+]      * Converts all inline `rgb()` color declarations to **HEX** values for better email client compatibility.
       * Formats and indents the final HTML output for readability.
   * **One-Click Copy:** Easily copy the finalized HTML code to the clipboard.
 
@@ -31,14 +26,13 @@ This is a client-side web application designed to create clean, cross-client com
 
 The application flow is centered around three main components: the **CKEditor instance**, the **Live Preview**, and the **HTML Output**.
 
-1.  **CKEditor Data:** The content is authored in the CKEditor instance.
-2.  **`updateLivePreview()`:** Triggered on any content change, this function:
+1.  **`updateLivePreview()`:** Triggered on any content change, this function:
       * Copies the raw HTML from the editor to the `#livePreview` element.
       * Applies universal email table attributes (`cellpadding="0"`, `cellspacing="0"`, `border-collapse: collapse`).
       * Attaches the custom cell selection logic and styling events to all `<td>` and `<th>` elements.
       * Calls `applyLanguageFont()` to immediately style the content in the preview.
-3.  **`applyCellStyle()` / `applyLanguageFont()`:** These functions apply selected styles to the `selectedCells` set in the preview, ensuring all styles are visible before final output.
-4.  **`updateHtmlOutput()`:** This is the final processing step:
+2. **`applyCellStyle()` / `applyLanguageFont()`:** These functions apply selected styles to the `selectedCells` set in the preview, ensuring all styles are visible before final output.
+3.  **`updateHtmlOutput()`:** This is the final processing step:
       * It creates a temporary DOM element to ensure all inline styles (font family, size, colors) are correctly applied to every content element (`<p>`, `<td>`, `<span>`, etc.).
       * It converts all RGB colors to HEX using `convertRgbToHex()`.
       * It removes the `<figure>` tag using `stripFigureWrapper()`.
