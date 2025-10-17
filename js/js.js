@@ -26,19 +26,12 @@ ClassicEditor.create(document.querySelector("#editor"), {
   .then((editor) => {
     editorInstance = editor;
     editor.model.document.on("change:data", () => updateLivePreview());
+    enableHrRemoval(); // Attach delegated listener
   })
   .catch((error) => console.error(error));
 
 function renderOutput() {
   applyLanguageFont();
-}
-
-function insertHorizontalRule(editor) {
-  editor.model.change((writer) => {
-    const viewFragment = editor.data.processor.toView("<hr>");
-    const modelFragment = editor.data.toModel(viewFragment);
-    editor.model.insertContent(modelFragment, editor.model.document.selection);
-  });
 }
 
 function applyLanguageFont() {
@@ -202,22 +195,31 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
 function insertDivider() {
   const preview = document.getElementById("livePreview");
   const hrElement = document.createElement("hr");
-  hrElement.classList.add("hr-preview"); // Apply preview styling
+
+  // Add a preview-specific class for styling (optional)
+  hrElement.classList.add("hr-preview");
+
+  // Append the <hr> to the preview container
   preview.appendChild(hrElement);
 
-  enableHrRemoval(); // Make it removable
-  updateHtmlOutput(selectedFont); // Update generated HTML
+  // Update the HTML output after adding the divider
+  const selectedLang = document.getElementById("languageSelector").value;
+  const selectedFont = fontMap[selectedLang] || fontMap["en"];
+  updateHtmlOutput(selectedFont);
 }
 
 function enableHrRemoval() {
   const preview = document.getElementById("livePreview");
 
-  // Attach click event to all <hr> elements
-  preview.querySelectorAll("hr").forEach((hr) => {
-    hr.onclick = () => {
-      hr.remove(); // Remove the clicked <hr>
-      updateHtmlOutput(selectedFont); // Update the generated HTML after removal
-    };
+  // Attach ONE listener to the container
+  preview.addEventListener("click", (event) => {
+    if (event.target.tagName === "HR") {
+      event.target.remove(); // Remove clicked <hr>
+
+      const selectedLang = document.getElementById("languageSelector").value;
+      const selectedFont = fontMap[selectedLang] || fontMap["en"];
+      updateHtmlOutput(selectedFont); // Update HTML after removal
+    }
   });
 }
 
@@ -242,31 +244,39 @@ function applyCellStyle() {
   const fontSize = document.getElementById("fontSize").value + "pt";
   const textColor = document.getElementById("textColor").value;
   const bgColor = document.getElementById("bgColor").value;
-  const padding = document.getElementById("padding").value + "px";
-  const textAlign = document.getElementById("textAlign").value;
 
+  const paddingTop = document.getElementById("paddingTop").value + "px";
+  const paddingBottom = document.getElementById("paddingBottom").value + "px";
+
+  const textAlign = document.getElementById("textAlign").value;
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
 
   const preview = document.getElementById("livePreview");
 
-  // Apply styles to selected table cells
+  // Apply styles to selected table cells (only if margin is 0)
   if (selectedCells.size > 0) {
     selectedCells.forEach((cell) => {
-      cell.style.fontSize = fontSize;
-      cell.style.color = textColor;
-      cell.style.backgroundColor = bgColor;
-      cell.style.padding = padding;
-      cell.style.textAlign = textAlign;
-      cell.style.fontFamily = selectedFont;
+      if (getComputedStyle(cell).margin === "0px") {
+        cell.style.fontSize = fontSize;
+        cell.style.color = textColor;
+        cell.style.backgroundColor = bgColor;
+        cell.style.paddingTop = paddingTop;
+        cell.style.paddingBottom = paddingBottom;
+        cell.style.textAlign = textAlign;
+        cell.style.fontFamily = selectedFont;
+      }
     });
   }
 
+  // Apply styles to selected non-table elements (use margin, reset padding)
   if (selectedNonTableElements.size > 0) {
     selectedNonTableElements.forEach((el) => {
       el.style.fontSize = fontSize;
       el.style.color = textColor;
-      el.style.padding = padding;
+      el.style.marginTop = paddingTop; // Use margin instead
+      el.style.marginBottom = paddingBottom;
+      el.style.padding = "0"; // Force padding to zero
       el.style.textAlign = textAlign;
       el.style.fontFamily = selectedFont;
     });
@@ -277,6 +287,8 @@ function applyCellStyle() {
 
 function clearCellStyle() {
   const preview = document.getElementById("livePreview");
+  const selectedLang = document.getElementById("languageSelector").value;
+  const selectedFont = fontMap[selectedLang] || fontMap["en"];
 
   // Remove styles from selected table cells
   if (selectedCells.size > 0) {
@@ -299,7 +311,7 @@ function clearCellStyle() {
 }
 
 function copyHTML() {
-  const content = document.getElementById("htmlOutput").textContent.trim();
+  const content = document.getElementById("htmlCodeBlock").textContent.trim();
 
   const successCopy = document.getElementById("successCopy");
   const failedCopy = document.getElementById("failedCopy");
