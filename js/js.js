@@ -3,9 +3,9 @@ let selectedCells = new Set(); // This will store the selected cells
 let selectedNonTableElements = new Set(); // Store multiple non-table elements
 
 const fontMap = {
-  en: "'Segoe UI'",
-  ja: "'Yu Gothic'",
-  ko: "'Malgun Gothic'",
+  en: "'Segoe UI', Arial, sans-serif",
+  ja: "'Yu Gothic', sans-serif",
+  ko: "'Malgun Gothic', sans-serif",
 };
 
 ClassicEditor.create(document.querySelector("#editor"), {
@@ -33,6 +33,14 @@ function renderOutput() {
   applyLanguageFont();
 }
 
+function insertHorizontalRule(editor) {
+  editor.model.change((writer) => {
+    const viewFragment = editor.data.processor.toView("<hr>");
+    const modelFragment = editor.data.toModel(viewFragment);
+    editor.model.insertContent(modelFragment, editor.model.document.selection);
+  });
+}
+
 function applyLanguageFont() {
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
@@ -53,8 +61,28 @@ function applyLanguageFont() {
 function updateLivePreview() {
   const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
+
+  // Preserve custom elements (like <hr>) before replacing content
+  const existingCustomElements = [];
+  preview.querySelectorAll("hr").forEach((hr) => {
+    const index = [...preview.childNodes].indexOf(hr);
+    existingCustomElements.push({ element: hr.cloneNode(true), index });
+  });
+
+  // Replace preview content with updated editor content
   preview.innerHTML = content.trim();
 
+  // Re-insert preserved custom elements at their original positions
+  existingCustomElements.forEach((item) => {
+    const { element, index } = item;
+    if (index >= preview.childNodes.length) {
+      preview.appendChild(element);
+    } else {
+      preview.insertBefore(element, preview.childNodes[index]);
+    }
+  });
+
+  // Apply table and click logic again
   preview.querySelectorAll("table").forEach((table) => {
     table.setAttribute("role", "presentation");
     table.setAttribute("cellpadding", "0");
@@ -68,7 +96,6 @@ function updateLivePreview() {
     cell.style.padding = "10px";
     cell.onclick = (event) => {
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
-        // Allow multiple cell selection with Ctrl or Shift key
         cell.classList.toggle("selected");
         if (cell.classList.contains("selected")) {
           selectedCells.add(cell);
@@ -76,7 +103,6 @@ function updateLivePreview() {
           selectedCells.delete(cell);
         }
       } else {
-        // Clear previous selections and select only the clicked cell
         selectedCells.forEach((c) => c.classList.remove("selected"));
         selectedCells.clear();
         cell.classList.add("selected");
@@ -88,9 +114,7 @@ function updateLivePreview() {
   preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
     el.onclick = (event) => {
       event.stopPropagation();
-
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
-        // Toggle selection
         el.classList.toggle("selected-non-table");
         if (el.classList.contains("selected-non-table")) {
           selectedNonTableElements.add(el);
@@ -98,7 +122,6 @@ function updateLivePreview() {
           selectedNonTableElements.delete(el);
         }
       } else {
-        // Clear previous selections and select only the clicked element
         selectedNonTableElements.forEach((e) =>
           e.classList.remove("selected-non-table")
         );
@@ -113,52 +136,62 @@ function updateLivePreview() {
 }
 
 function updateHtmlOutput(selectedFont = fontMap["en"]) {
-  const rawHtml = document.getElementById("livePreview").innerHTML.trim();
+  const preview = document.getElementById("livePreview");
+  const rawHtml = preview.innerHTML.trim();
   const cleanedHtml = stripFigureWrapper(rawHtml);
-  const fontSize = document.getElementById("fontSize").value + "pt";
 
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
 
-  temp.querySelectorAll("p, td, th, ul, ol, li").forEach((el) => {
+  const fontSize = document.getElementById("fontSize").value + "pt";
+  const isForEmail = document.getElementById("forEmail").checked;
+
+  // Apply font styles to all relevant elements
+  temp.querySelectorAll("p, td, th, ul, ol, li, div, span").forEach((el) => {
     el.style.fontFamily = selectedFont;
     el.style.fontSize = fontSize;
   });
 
+  // Style links
   temp.querySelectorAll("a").forEach((link) => {
     link.style.textDecoration = "underline";
     link.style.color = "#0067b8";
     link.setAttribute("target", "_blank");
   });
 
+  // Convert RGB to HEX in inline styles
   temp.querySelectorAll("[style]").forEach((el) => {
     el.setAttribute("style", convertRgbToHex(el.getAttribute("style")));
   });
 
+  // Remove preview-only classes
+  temp.querySelectorAll("hr.hr-preview").forEach((hr) => {
+    hr.removeAttribute("class");
+  });
+
   let finalHtml = temp.innerHTML;
 
-  const isForEmail = document.getElementById("forEmail").checked;
+  // Wrap for email if needed
   if (isForEmail) {
-    const emailWrapper = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: 16px; font-family: 'Segoe UI'; color: #000000;">
+    finalHtml = `
+      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000;">
         ${finalHtml}
       </div>
     `;
-    finalHtml = emailWrapper;
   }
 
+  // Format and clean up HTML
   let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
 
-  const firstChar = formattedHtml.charAt(0);
-  const lastChar = formattedHtml.charAt(formattedHtml.length - 1);
   const removable = ["<", ">", '"', "'"];
-  if (removable.includes(firstChar)) {
+  if (removable.includes(formattedHtml.charAt(0))) {
     formattedHtml = formattedHtml.substring(1);
   }
-  if (removable.includes(lastChar)) {
+  if (removable.includes(formattedHtml.charAt(formattedHtml.length - 1))) {
     formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
   }
 
+  // Output to code block
   const codeBlock = document.getElementById("htmlCodeBlock");
   codeBlock.textContent = formattedHtml;
 
@@ -169,15 +202,23 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
 function insertDivider() {
   const preview = document.getElementById("livePreview");
   const hrElement = document.createElement("hr");
-  hrElement.style.border = "0";
-  hrElement.style.height = "1px";
-  hrElement.style.backgroundColor = "#A2A2A2";
-  hrElement.style.margin = "0";
-  hrElement.style.lineHeight = "1px";
-  hrElement.style.padding = "0px";
+  hrElement.classList.add("hr-preview"); // Apply preview styling
   preview.appendChild(hrElement);
 
-  updateHtmlOutput(); // Update the generated HTML
+  enableHrRemoval(); // Make it removable
+  updateHtmlOutput(selectedFont); // Update generated HTML
+}
+
+function enableHrRemoval() {
+  const preview = document.getElementById("livePreview");
+
+  // Attach click event to all <hr> elements
+  preview.querySelectorAll("hr").forEach((hr) => {
+    hr.onclick = () => {
+      hr.remove(); // Remove the clicked <hr>
+      updateHtmlOutput(selectedFont); // Update the generated HTML after removal
+    };
+  });
 }
 
 function convertRgbToHex(styleString) {
@@ -225,6 +266,7 @@ function applyCellStyle() {
     selectedNonTableElements.forEach((el) => {
       el.style.fontSize = fontSize;
       el.style.color = textColor;
+      el.style.padding = padding;
       el.style.textAlign = textAlign;
       el.style.fontFamily = selectedFont;
     });
@@ -262,15 +304,16 @@ function copyHTML() {
   const successCopy = document.getElementById("successCopy");
   const failedCopy = document.getElementById("failedCopy");
 
+  // If there's no content, show the failed copy message
   if (!content) {
     failedCopy.classList.add("show");
-    successCopy.classList.remove("show");
+    successCopy.classList.remove("show"); // Hide success message if no content
 
     setTimeout(() => {
-      failedCopy.classList.remove("show");
+      failedCopy.classList.remove("show"); // Hide failed message after 2 seconds
     }, 2000);
 
-    return;
+    return; // Exit the function early if there's no content
   }
 
   // If there is content, attempt to copy to clipboard
@@ -313,4 +356,3 @@ function formatHtml(html) {
 
   return result;
 }
-
