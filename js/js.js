@@ -55,23 +55,46 @@ function updateLivePreview() {
   const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
 
-  // Preserve custom elements (like <hr>) before replacing content
+  // ✅ Preserve custom elements (like <hr>) before replacing content
   const existingCustomElements = [];
   preview.querySelectorAll("hr").forEach((hr) => {
     const index = [...preview.childNodes].indexOf(hr);
     existingCustomElements.push({ element: hr.cloneNode(true), index });
   });
 
+  // ✅ Preserve styles and classes before replacing content
+  const styledElements = [];
+  preview
+    .querySelectorAll("td, th, p, span, div, ul, ol, li")
+    .forEach((el, i) => {
+      styledElements.push({
+        index: i,
+        style: el.getAttribute("style"),
+        classes: el.className,
+      });
+    });
+
   // Replace preview content with updated editor content
   preview.innerHTML = content.trim();
 
-  // Re-insert preserved custom elements at their original positions
-  existingCustomElements.forEach((item) => {
-    const { element, index } = item;
+  // ✅ Re-insert preserved custom elements at their original positions
+  existingCustomElements.forEach(({ element, index }) => {
     if (index >= preview.childNodes.length) {
       preview.appendChild(element);
     } else {
       preview.insertBefore(element, preview.childNodes[index]);
+    }
+  });
+
+  // ✅ Reapply preserved styles and classes (best-effort by index)
+  const newElements = preview.querySelectorAll(
+    "td, th, p, span, div, ul, ol, li"
+  );
+  newElements.forEach((el, i) => {
+    if (styledElements[i]) {
+      if (styledElements[i].style)
+        el.setAttribute("style", styledElements[i].style);
+      if (styledElements[i].classes) el.className = styledElements[i].classes;
     }
   });
 
@@ -368,3 +391,4 @@ function formatHtml(html) {
 
   return result;
 }
+
