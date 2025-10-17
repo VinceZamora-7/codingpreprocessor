@@ -146,7 +146,9 @@ input[type="color"] {
   box-shadow: inset 0 0 8px rgb(0 0 0 / 0.03);
   overflow: auto;
 }
-
+.padding-bottom{
+  transform: rotate(180deg);
+}
 .ck-toolbar {
   border: 1px solid #ccc;
   border-bottom: none;
@@ -399,3 +401,4 @@ input[type="number"]:focus {
   opacity: 1;
   transition: all ease-in 0.5s;
 }
+
