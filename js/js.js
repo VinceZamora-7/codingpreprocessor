@@ -62,19 +62,7 @@ function updateLivePreview() {
     existingCustomElements.push({ element: hr.cloneNode(true), index });
   });
 
-  // ✅ Preserve styles and classes before replacing content
-  const styledElements = [];
-  preview
-    .querySelectorAll("td, th, p, span, div, ul, ol, li")
-    .forEach((el, i) => {
-      styledElements.push({
-        index: i,
-        style: el.getAttribute("style"),
-        classes: el.className,
-      });
-    });
-
-  // Replace preview content with updated editor content
+  // ✅ Replace preview content with updated editor content
   preview.innerHTML = content.trim();
 
   // ✅ Re-insert preserved custom elements at their original positions
@@ -86,68 +74,87 @@ function updateLivePreview() {
     }
   });
 
-  // ✅ Reapply preserved styles and classes (best-effort by index)
-  const newElements = preview.querySelectorAll(
-    "td, th, p, span, div, ul, ol, li"
-  );
-  newElements.forEach((el, i) => {
-    if (styledElements[i]) {
-      if (styledElements[i].style)
-        el.setAttribute("style", styledElements[i].style);
-      if (styledElements[i].classes) el.className = styledElements[i].classes;
-    }
-  });
-
-  // Apply table and click logic again
+  // ✅ Apply table attributes and border logic
   preview.querySelectorAll("table").forEach((table) => {
     table.setAttribute("role", "presentation");
     table.setAttribute("cellpadding", "0");
     table.setAttribute("cellspacing", "0");
-    table.style.border = "1px solid #000000";
     table.style.borderCollapse = "collapse";
+
+    if (!table.classList.contains("list-table")) {
+      // Normal tables: add borders
+      table.querySelectorAll("td, th").forEach((cell) => {
+        cell.style.border = "1px solid #000000";
+        cell.style.padding = "10px";
+      });
+    } else {
+      // List tables: keep borderless
+      table.querySelectorAll("td, th").forEach((cell) => {
+        cell.style.border = "none";
+        cell.style.padding = "0";
+      });
+    }
   });
 
-  preview.querySelectorAll("td, th").forEach((cell) => {
-    cell.style.border = "1px solid #000000";
-    cell.style.padding = "10px";
-    cell.onclick = (event) => {
-      if (event.ctrlKey || event.metaKey || event.shiftKey) {
-        cell.classList.toggle("selected");
-        if (cell.classList.contains("selected")) {
+  // ✅ Clear stale selections after re-render
+  selectedCells.forEach((c) => c.classList.remove("selected"));
+  selectedCells.clear();
+  selectedNonTableElements.forEach((e) =>
+    e.classList.remove("selected-non-table")
+  );
+  selectedNonTableElements.clear();
+
+  // ✅ Attach delegated click handler only once
+  if (!preview.__delegatedHandlersAttached) {
+    preview.__delegatedHandlersAttached = true;
+
+    preview.addEventListener("click", (event) => {
+      const target = event.target;
+
+      // Table cell selection
+      const cell = target.closest("td, th");
+      if (cell) {
+        if (event.ctrlKey || event.metaKey || event.shiftKey) {
+          cell.classList.toggle("selected");
+          if (cell.classList.contains("selected")) {
+            selectedCells.add(cell);
+          } else {
+            selectedCells.delete(cell);
+          }
+        } else {
+          selectedCells.forEach((c) => c.classList.remove("selected"));
+          selectedCells.clear();
+          cell.classList.add("selected");
           selectedCells.add(cell);
-        } else {
-          selectedCells.delete(cell);
         }
-      } else {
-        selectedCells.forEach((c) => c.classList.remove("selected"));
-        selectedCells.clear();
-        cell.classList.add("selected");
-        selectedCells.add(cell);
+        event.stopPropagation();
+        return;
       }
-    };
-  });
 
-  preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
-    el.onclick = (event) => {
-      event.stopPropagation();
-      if (event.ctrlKey || event.metaKey || event.shiftKey) {
-        el.classList.toggle("selected-non-table");
-        if (el.classList.contains("selected-non-table")) {
+      // Non-table element selection
+      const el = target.closest("p, span, div, ul, ol, li");
+      if (el && !el.closest("table")) {
+        if (event.ctrlKey || event.metaKey || event.shiftKey) {
+          el.classList.toggle("selected-non-table");
+          if (el.classList.contains("selected-non-table")) {
+            selectedNonTableElements.add(el);
+          } else {
+            selectedNonTableElements.delete(el);
+          }
+        } else {
+          selectedNonTableElements.forEach((e) =>
+            e.classList.remove("selected-non-table")
+          );
+          selectedNonTableElements.clear();
+          el.classList.add("selected-non-table");
           selectedNonTableElements.add(el);
-        } else {
-          selectedNonTableElements.delete(el);
         }
-      } else {
-        selectedNonTableElements.forEach((e) =>
-          e.classList.remove("selected-non-table")
-        );
-        selectedNonTableElements.clear();
-        el.classList.add("selected-non-table");
-        selectedNonTableElements.add(el);
+        event.stopPropagation();
       }
-    };
-  });
+    });
+  }
 
+  // ✅ Apply language font after update
   applyLanguageFont();
 }
 
@@ -159,13 +166,15 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
 
+  // ✅ Convert lists (ul/ol) into table-based lists per your sample
+  convertListsToTables(temp);
+
   const fontSize = document.getElementById("fontSize").value + "pt";
   const isForEmail = document.getElementById("forEmail").checked;
 
   // Apply font styles to all relevant elements
   temp.querySelectorAll("p, td, th, ul, ol, li, div, span").forEach((el) => {
     el.style.fontFamily = selectedFont;
-    el.style.fontSize = fontSize;
   });
 
   // Style links
@@ -187,7 +196,6 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
 
   let finalHtml = temp.innerHTML;
 
-  // Wrap for email if needed
   if (isForEmail) {
     finalHtml = `
       <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000;">
@@ -196,7 +204,6 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
     `;
   }
 
-  // Format and clean up HTML
   let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
 
   const removable = ["<", ">", '"', "'"];
@@ -207,10 +214,8 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
     formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
   }
 
-  // Output to code block
   const codeBlock = document.getElementById("htmlCodeBlock");
   codeBlock.textContent = formattedHtml;
-
   Prism.highlightElement(codeBlock);
 }
 
@@ -277,27 +282,34 @@ function applyCellStyle() {
 
   const preview = document.getElementById("livePreview");
 
-  // Apply styles to selected table cells (only if margin is 0)
+  // ✅ Apply styles to selected table cells
   if (selectedCells.size > 0) {
     selectedCells.forEach((cell) => {
-      if (getComputedStyle(cell).margin === "0px") {
-        cell.style.fontSize = fontSize;
-        cell.style.color = textColor;
-        cell.style.backgroundColor = bgColor;
-        cell.style.paddingTop = paddingTop;
-        cell.style.paddingBottom = paddingBottom;
-        cell.style.textAlign = textAlign;
-        cell.style.fontFamily = selectedFont;
-      }
+      const row = cell.parentElement;
+      const table = row?.closest("table");
+      const isListTable =
+        table && table.getAttribute("data-list-table") === "1";
+
+      const targetCells = isListTable ? row.querySelectorAll("td, th") : [cell];
+
+      targetCells.forEach((c) => {
+        c.style.fontSize = fontSize;
+        c.style.color = textColor; // <-- text color
+        c.style.backgroundColor = bgColor;
+        c.style.paddingTop = paddingTop;
+        c.style.paddingBottom = paddingBottom;
+        c.style.textAlign = textAlign;
+        c.style.fontFamily = selectedFont;
+      });
     });
   }
 
-  // Apply styles to selected non-table elements (use margin, reset padding)
+  // Apply styles to selected non-table elements
   if (selectedNonTableElements.size > 0) {
     selectedNonTableElements.forEach((el) => {
       el.style.fontSize = fontSize;
       el.style.color = textColor;
-      el.style.marginTop = paddingTop; // Use margin instead
+      el.style.marginTop = paddingTop; // Your margin-based spacing for non-table
       el.style.marginBottom = paddingBottom;
       el.style.padding = "0"; // Force padding to zero
       el.style.textAlign = textAlign;
@@ -313,18 +325,28 @@ function clearCellStyle() {
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
 
-  // Remove styles from selected table cells
+  // Remove styles from selected table cells but keep font-size
   if (selectedCells.size > 0) {
     selectedCells.forEach((cell) => {
+      const currentFontSize =
+        cell.style.fontSize || window.getComputedStyle(cell).fontSize;
       cell.removeAttribute("style");
+      if (currentFontSize) {
+        cell.style.fontSize = currentFontSize; // Reapply font-size
+      }
     });
     selectedCells.clear();
   }
 
-  // Remove styles from the selected non-table element only
+  // Remove styles from selected non-table elements but keep font-size
   if (selectedNonTableElements.size > 0) {
     selectedNonTableElements.forEach((el) => {
+      const currentFontSize =
+        el.style.fontSize || window.getComputedStyle(el).fontSize;
       el.removeAttribute("style");
+      if (currentFontSize) {
+        el.style.fontSize = currentFontSize; // Reapply font-size
+      }
       el.classList.remove("selected-non-table");
     });
     selectedNonTableElements.clear();
@@ -392,3 +414,102 @@ function formatHtml(html) {
   return result;
 }
 
+/**
+ * Converts all <ul> and <ol> lists under `root` into a table-based list format.
+ * - Unordered lists => bullet "•"
+ * - Ordered lists => numeric "1.", "2.", ... (respects `start` attribute if present)
+ * - Nested lists inside an <li> are flattened and appended to the same cell using <br/>
+ * - All styles are inline and set to zero margins/padding, per your sample
+ *
+ * Example call inside updateHtmlOutput, after `temp.innerHTML = cleanedHtml`:
+ *   convertListsToTables(temp);
+ */
+function convertListsToTables(root) {
+  if (!root) return;
+  const lists = Array.from(root.querySelectorAll("ul, ol"));
+
+  lists.forEach((list) => {
+    const isOrdered = list.tagName === "OL";
+    const startAttr = list.getAttribute("start");
+    const startIndex =
+      isOrdered && startAttr ? parseInt(startAttr, 10) || 1 : 1;
+
+    const table = document.createElement("table");
+
+    // Set proper attributes
+    table.setAttribute("role", "presentation");
+    table.setAttribute("border", "0");
+    table.setAttribute("cellspacing", "0");
+    table.setAttribute("cellpadding", "0");
+
+    // Apply only CSS inside style
+    table.style.margin = "0";
+    table.style.padding = "0";
+    table.style.borderCollapse = "collapse";
+
+    const liItems = Array.from(list.children).filter(
+      (el) => el.tagName === "LI"
+    );
+
+    liItems.forEach((li, idx) => {
+      const tr = document.createElement("tr");
+
+      const markerTd = document.createElement("td");
+      markerTd.setAttribute(
+        "style",
+        "margin: 0; padding: 0; width: 20px; vertical-align: top; text-align: left;"
+      );
+      markerTd.textContent = isOrdered ? startIndex + idx + "." : "•";
+
+      const textTd = document.createElement("td");
+      textTd.setAttribute("style", "vertical-align: top;");
+
+      // ✅ Transfer inline styles from <li> to textTd
+      if (li.getAttribute("style")) {
+        textTd.setAttribute(
+          "style",
+          textTd.getAttribute("style") + " " + li.getAttribute("style")
+        );
+      }
+
+      const liClone = li.cloneNode(true);
+      const nestedTexts = [];
+      liClone.querySelectorAll("ul, ol").forEach((nested) => {
+        nested.querySelectorAll("li").forEach((nli) => {
+          const t = (nli.textContent || "").trim();
+          if (t) nestedTexts.push(t);
+        });
+        nested.remove();
+      });
+
+      const mainHtml = (liClone.innerHTML || "").trim();
+      textTd.innerHTML = mainHtml ? mainHtml : "&nbsp;";
+      if (nestedTexts.length) {
+        textTd.innerHTML += "<br/>" + nestedTexts.join("<br/>");
+      }
+
+      tr.appendChild(markerTd);
+      tr.appendChild(textTd);
+      table.appendChild(tr);
+    });
+
+    list.replaceWith(table);
+  });
+}
+
+function convertListToTable(listElement) {
+  const table = document.createElement("table");
+  table.classList.add("list-table"); // Marker class for list-based tables
+
+  const items = listElement.querySelectorAll("li");
+  items.forEach((item) => {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.textContent = item.textContent.trim();
+    cell.style.border = "none"; // Lock border for list tables
+    row.appendChild(cell);
+    table.appendChild(row);
+  });
+
+  return table;
+}
