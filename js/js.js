@@ -52,64 +52,155 @@ function applyLanguageFont() {
 }
 
 function updateLivePreview() {
-  const content = editorInstance.getData();
   const preview = document.getElementById("livePreview");
+  const content = editorInstance.getData();
 
-  // ✅ Preserve custom elements (like <hr>) before replacing content
-  const existingCustomElements = [];
+  // --- 1) Preserve custom <hr> elements (top-level) ---
+  const preservedHrs = [];
   preview.querySelectorAll("hr").forEach((hr) => {
-    const index = [...preview.childNodes].indexOf(hr);
-    existingCustomElements.push({ element: hr.cloneNode(true), index });
+    const idx = Array.prototype.indexOf.call(preview.childNodes, hr);
+    preservedHrs.push({ node: hr.cloneNode(true), index: idx });
   });
 
-  // ✅ Preserve styles and classes before replacing content
-  const styledElements = [];
-  preview
-    .querySelectorAll("td, th, p, span, div, ul, ol, li")
-    .forEach((el, i) => {
-      styledElements.push({
-        index: i,
-        style: el.getAttribute("style"),
-        classes: el.className,
+  // --- 2) Snapshot styles/classes with a SAFE whitelist ---
+  // Root cause fix: do not blindly restore styles by index across tag types.
+  // Instead, store only allowed properties and reapply only when tag matches.
+  const SAFE_SELECTOR = "td, th, p, span, div, ul, ol, li";
+  const NON_TABLE_ALLOWED = new Set([
+    "font-family",
+    "font-size",
+    "color",
+    "text-align",
+    "line-height",
+    "margin-top",
+    "margin-bottom",
+  ]);
+  const TABLE_CELL_ALLOWED = new Set([
+    "font-family",
+    "font-size",
+    "color",
+    "text-align",
+    "line-height",
+    "background-color",
+    "padding",
+    "padding-top",
+    "padding-bottom",
+    "padding-left",
+    "padding-right",
+    "border",
+    "border-top",
+    "border-bottom",
+    "border-left",
+    "border-right",
+  ]);
+
+  const styleStringToObj = (styleStr = "") => {
+    const obj = {};
+    styleStr
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .forEach((decl) => {
+        const colon = decl.indexOf(":");
+        if (colon > 0) {
+          const prop = decl.slice(0, colon).trim().toLowerCase();
+          const val = decl.slice(colon + 1).trim();
+          obj[prop] = val;
+        }
       });
+    return obj;
+  };
+
+  const objToStyleString = (obj) =>
+    Object.entries(obj)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("; ");
+
+  const filterStyle = (styleObj, allowedSet) => {
+    const filtered = {};
+    for (const prop of Object.keys(styleObj)) {
+      if (allowedSet.has(prop)) filtered[prop] = styleObj[prop];
+    }
+    return filtered;
+  };
+
+  const mergeAllowed = (existingStr, allowedObj) => {
+    const existingObj = styleStringToObj(existingStr);
+    // Overwrite only the allowed props
+    for (const [k, v] of Object.entries(allowedObj)) {
+      existingObj[k] = v;
+    }
+    const result = objToStyleString(existingObj);
+    return result ? result + ";" : ""; // keep trailing semicolon for consistency
+  };
+
+  const snapshot = [];
+  preview.querySelectorAll(SAFE_SELECTOR).forEach((el) => {
+    const tag = el.tagName; // uppercase
+    const styleObj = styleStringToObj(el.getAttribute("style") || "");
+    const inTable = !!el.closest("table");
+    const allowed =
+      tag === "TD" || tag === "TH" ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
+    const filtered = filterStyle(styleObj, allowed);
+
+    snapshot.push({
+      tag, // guard against cross-tag application
+      allowedStyle: filtered, // only safe props
+      classes: el.className || "", // preserve classes
     });
-
-  // Replace preview content with updated editor content
-  preview.innerHTML = content.trim();
-
-  // ✅ Re-insert preserved custom elements at their original positions
-  existingCustomElements.forEach(({ element, index }) => {
-    if (index >= preview.childNodes.length) {
-      preview.appendChild(element);
-    } else {
-      preview.insertBefore(element, preview.childNodes[index]);
-    }
   });
 
-  // ✅ Reapply preserved styles and classes (best-effort by index)
-  const newElements = preview.querySelectorAll(
-    "td, th, p, span, div, ul, ol, li"
-  );
+  // --- 3) Replace preview content with editor HTML ---
+  preview.innerHTML = (content || "").trim();
+
+  // --- 4) Reinsert preserved <hr> at prior positions (best effort) ---
+  preservedHrs.forEach(({ node, index }) => {
+    const cappedIndex = Math.min(index, preview.childNodes.length);
+    const ref = preview.childNodes[cappedIndex] || null;
+    preview.insertBefore(node, ref);
+  });
+
+  // --- 5) Restore styles/classes SAFELY (tag-matched + whitelist) ---
+  const newElements = preview.querySelectorAll(SAFE_SELECTOR);
   newElements.forEach((el, i) => {
-    if (styledElements[i]) {
-      if (styledElements[i].style)
-        el.setAttribute("style", styledElements[i].style);
-      if (styledElements[i].classes) el.className = styledElements[i].classes;
+    const original = snapshot[i];
+    if (!original) return;
+
+    // Restore only if the tagName matches (prevents table-cell -> paragraph bleed)
+    if (original.tag === el.tagName) {
+      // Merge only the allowed properties for the current context
+      const isCell = el.tagName === "TD" || el.tagName === "TH";
+      const allowedSet = isCell ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
+      const mergedStyle = mergeAllowed(
+        el.getAttribute("style") || "",
+        filterStyle(original.allowedStyle, allowedSet)
+      );
+      if (mergedStyle) el.setAttribute("style", mergedStyle);
+
+      // Restore classes
+      if (original.classes) el.className = original.classes;
     }
   });
 
-  // Apply table and click logic again
+  // --- 6) Apply table attributes and borders (scoped to tables only) ---
   preview.querySelectorAll("table").forEach((table) => {
     table.setAttribute("role", "presentation");
     table.setAttribute("cellpadding", "0");
     table.setAttribute("cellspacing", "0");
-    table.style.border = "1px solid #000000";
     table.style.borderCollapse = "collapse";
+    table.style.border = "1px solid #000000"; // table border only
   });
 
+  // --- 7) Cell styling + selection handlers (no bleed to non-table tags) ---
+  // Clear old selection references (they point to old nodes)
+  selectedCells.forEach((c) => c.classList.remove("selected"));
+  selectedCells.clear();
+
   preview.querySelectorAll("td, th").forEach((cell) => {
+    // Ensure borders/padding only for cells
     cell.style.border = "1px solid #000000";
     cell.style.padding = "10px";
+
     cell.onclick = (event) => {
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
         cell.classList.toggle("selected");
@@ -127,7 +218,16 @@ function updateLivePreview() {
     };
   });
 
+  // --- 8) Non-table element selection handlers ---
+  selectedNonTableElements.forEach((e) =>
+    e.classList.remove("selected-non-table")
+  );
+  selectedNonTableElements.clear();
+
   preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
+    // Skip elements inside tables entirely
+    if (el.closest("table")) return;
+
     el.onclick = (event) => {
       event.stopPropagation();
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -148,6 +248,7 @@ function updateLivePreview() {
     };
   });
 
+  // --- 9) Reapply language/font styling consistently ---
   applyLanguageFont();
 }
 
@@ -164,56 +265,54 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const paddingTop = document.getElementById("paddingTop").value + "px";
   const paddingBottom = document.getElementById("paddingBottom").value + "px";
 
-  // Apply font styles to all relevant elements
+  // ✅ Fonts: only set if not already present
   temp.querySelectorAll("p, td, th, ul, ol, li, div, span").forEach((el) => {
-    el.style.fontFamily = selectedFont;
-    el.style.fontSize = fontSize;
+    if (!el.style.fontFamily) el.style.fontFamily = selectedFont;
+    if (!el.style.fontSize) el.style.fontSize = fontSize;
   });
 
-  // Style links
+  // ✅ Links: only set if missing
   temp.querySelectorAll("a").forEach((link) => {
-    link.style.textDecoration = "underline";
-    link.style.color = "#0067b8";
+    if (!link.style.textDecoration) link.style.textDecoration = "underline";
+    if (!link.style.color) link.style.color = "#0067b8";
     link.setAttribute("target", "_blank");
   });
-  // Style lists
+
+  // ✅ Lists: only set if missing
   temp.querySelectorAll("ul, ol").forEach((list) => {
-    list.style.margin = "0";
-    list.style.padding = "0";
-    list.style.listStylePosition = "inside";
+    if (!list.style.margin) list.style.margin = "0";
+    if (!list.style.padding) list.style.padding = "0";
+    if (!list.style.listStylePosition) list.style.listStylePosition = "inside";
   });
+
+  // ✅ List items: only set if missing
   temp.querySelectorAll("li").forEach((li) => {
-    const fontSize = document.getElementById("fontSize").value + "pt";
-    const selectedLang = document.getElementById("languageSelector").value;
-    const selectedFont = fontMap[selectedLang] || fontMap["en"];
-
-    li.style.margin = "0";
-    li.style.padding = "0";
-    li.style.fontSize = fontSize;
-    li.style.lineHeight = "115%";
-    li.style.fontFamily = selectedFont;
+    if (!li.style.margin) li.style.margin = "0";
+    if (!li.style.padding) li.style.padding = "0";
+    if (!li.style.fontSize) li.style.fontSize = fontSize;
+    if (!li.style.lineHeight) li.style.lineHeight = "115%";
+    if (!li.style.fontFamily) li.style.fontFamily = selectedFont;
   });
 
-  // Style paragraphs
-
+  // ✅ Paragraph margins: only set if missing
   temp.querySelectorAll("p").forEach((p) => {
-    p.style.marginTop = paddingTop;
-    p.style.marginBottom = paddingBottom;
+    if (!p.style.marginTop) p.style.marginTop = paddingTop;
+    if (!p.style.marginBottom) p.style.marginBottom = paddingBottom;
   });
 
-  // Convert RGB to HEX in inline styles
+  // ✅ Convert RGB to HEX in inline styles
   temp.querySelectorAll("[style]").forEach((el) => {
     el.setAttribute("style", convertRgbToHex(el.getAttribute("style")));
   });
 
-  // Remove preview-only classes
+  // ✅ Remove preview-only classes
   temp.querySelectorAll("hr.hr-preview").forEach((hr) => {
     hr.removeAttribute("class");
   });
 
   let finalHtml = temp.innerHTML;
 
-  // Wrap for email if needed
+  // ✅ Wrap for email if needed
   if (isForEmail) {
     finalHtml = `
       <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000;">
@@ -222,9 +321,8 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
     `;
   }
 
-  // Format and clean up HTML
+  // ✅ Format and clean up HTML
   let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
-
   const removable = ["<", ">", '"', "'"];
   if (removable.includes(formattedHtml.charAt(0))) {
     formattedHtml = formattedHtml.substring(1);
@@ -233,10 +331,9 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
     formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
   }
 
-  // Output to code block
+  // ✅ Output to code block
   const codeBlock = document.getElementById("htmlCodeBlock");
   codeBlock.textContent = formattedHtml;
-
   Prism.highlightElement(codeBlock);
 }
 
@@ -335,26 +432,35 @@ function applyCellStyle() {
 }
 
 function clearCellStyle() {
-  const preview = document.getElementById("livePreview");
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
 
-  // Remove styles from selected table cells
-  if (selectedCells.size > 0) {
-    selectedCells.forEach((cell) => {
-      cell.removeAttribute("style");
-    });
-    selectedCells.clear();
-  }
+  const defaultFontSize = "13.5pt";
+  const defaultTextColor = "#000000";
+  const defaultBorder = "1px solid #000000";
 
-  // Remove styles from the selected non-table element only
-  if (selectedNonTableElements.size > 0) {
-    selectedNonTableElements.forEach((el) => {
-      el.removeAttribute("style");
-      el.classList.remove("selected-non-table");
-    });
-    selectedNonTableElements.clear();
-  }
+  // Reset table cells
+  selectedCells.forEach((cell) => {
+    cell.style.fontFamily = selectedFont;
+    cell.style.fontSize = defaultFontSize;
+    cell.style.color = defaultTextColor;
+    cell.style.border = defaultBorder;
+    cell.style.padding = "10px";
+    cell.style.textAlign = "left";
+  });
+  selectedCells.clear();
+
+  // Reset non-table elements
+  selectedNonTableElements.forEach((el) => {
+    el.style.fontFamily = selectedFont;
+    el.style.fontSize = defaultFontSize;
+    el.style.color = defaultTextColor;
+    el.style.marginTop = "0";
+    el.style.marginBottom = "0";
+    el.style.padding = "0";
+    el.style.textAlign = "left";
+  });
+  selectedNonTableElements.clear();
 
   updateHtmlOutput(selectedFont);
 }
