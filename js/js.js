@@ -34,17 +34,22 @@ function renderOutput() {
   applyLanguageFont();
 }
 
-function applyLanguageFont() {
+function applyLanguageFont(options = {}) {
+  const { applySize = false } = options; // 🔒 default: don't apply font-size
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
-  const fontSize = document.getElementById("fontSize").value + "pt"; // ✅ define fontSize
+  const fontSize = document.getElementById("fontSize").value + "pt";
   const preview = document.getElementById("livePreview");
+  const isForEmail = document.getElementById("forEmail").checked;
 
-  preview.querySelectorAll("p, div, td, th, ul, ol, li").forEach((el) => {
+  preview.querySelectorAll("p, div, td, th, li, span").forEach((el) => {
+    // Always set font-family (safe, per your spec)
     el.style.fontFamily = selectedFont;
-    const isForEmail = document.getElementById("forEmail").checked;
-    if (!isForEmail) {
-      el.style.fontSize = fontSize;
+
+    // 🛑 Only set font-size if explicitly enabled AND not for email wrapper
+    if (applySize && !isForEmail) {
+      // Respect existing inline sizes: set only if missing
+      if (!el.style.fontSize) el.style.fontSize = fontSize;
     }
   });
 
@@ -248,8 +253,8 @@ function updateLivePreview() {
     };
   });
 
-  // --- 9) Reapply language/font styling consistently ---
-  applyLanguageFont();
+  // --- 9) Reapply font-family only (no automatic font-size on editor changes) ---
+  applyLanguageFont({ applySize: false });
 }
 
 function updateHtmlOutput(selectedFont = fontMap["en"]) {
@@ -266,7 +271,7 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const paddingBottom = document.getElementById("paddingBottom").value + "px";
 
   // ✅ Fonts: only set if not already present
-  temp.querySelectorAll("p, td, th, ul, ol, li, div, span").forEach((el) => {
+  temp.querySelectorAll("p, td, th, li, div, span").forEach((el) => {
     if (!el.style.fontFamily) el.style.fontFamily = selectedFont;
     if (!el.style.fontSize) el.style.fontSize = fontSize;
   });
@@ -280,17 +285,12 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
 
   // ✅ Lists: only set if missing
   temp.querySelectorAll("ul, ol").forEach((list) => {
-    if (!list.style.margin) list.style.margin = "0";
-    if (!list.style.padding) list.style.padding = "0";
-    if (!list.style.listStylePosition) list.style.listStylePosition = "inside";
+    if (!list.style.whiteSpace) list.style.whiteSpace = "normal";
   });
 
   // ✅ List items: only set if missing
   temp.querySelectorAll("li").forEach((li) => {
-    if (!li.style.margin) li.style.margin = "0";
-    if (!li.style.padding) li.style.padding = "0";
     if (!li.style.fontSize) li.style.fontSize = fontSize;
-    if (!li.style.lineHeight) li.style.lineHeight = "115%";
     if (!li.style.fontFamily) li.style.fontFamily = selectedFont;
   });
 
@@ -438,6 +438,7 @@ function clearCellStyle() {
   const defaultFontSize = "13.5pt";
   const defaultTextColor = "#000000";
   const defaultBorder = "1px solid #000000";
+  const defaultBackgroundColor = "#FFFFFF";
 
   // Reset table cells
   selectedCells.forEach((cell) => {
@@ -445,6 +446,7 @@ function clearCellStyle() {
     cell.style.fontSize = defaultFontSize;
     cell.style.color = defaultTextColor;
     cell.style.border = defaultBorder;
+    cell.style.backgroundColor = defaultBackgroundColor;
     cell.style.padding = "10px";
     cell.style.textAlign = "left";
   });
