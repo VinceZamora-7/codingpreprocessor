@@ -285,6 +285,7 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
 
   // ✅ Lists: only set if missing
   temp.querySelectorAll("ul, ol").forEach((list) => {
+    if (!list.style.marginTop) list.style.marginTop = "0px";
     if (!list.style.whiteSpace) list.style.whiteSpace = "normal";
   });
 
