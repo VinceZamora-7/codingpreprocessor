@@ -286,7 +286,6 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   // ✅ Lists: only set if missing
   temp.querySelectorAll("ul, ol").forEach((list) => {
     if (!list.style.marginTop) list.style.marginTop = "0px";
-    if (!list.style.whiteSpace) list.style.whiteSpace = "normal";
   });
 
   // ✅ List items: only set if missing
@@ -299,6 +298,8 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   temp.querySelectorAll("p").forEach((p) => {
     if (!p.style.marginTop) p.style.marginTop = paddingTop;
     if (!p.style.marginBottom) p.style.marginBottom = paddingBottom;
+    // Optional: default wrapping if missing on <p>
+    if (!p.style.whiteSpace) p.style.whiteSpace = "normal";
   });
 
   // ✅ Convert RGB to HEX in inline styles
@@ -311,13 +312,23 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
     hr.removeAttribute("class");
   });
 
-  let finalHtml = temp.innerHTML;
+  // Build inner HTML
+  let innerHtml = temp.innerHTML;
 
-  // ✅ Wrap for email if needed
+  // ✅ Wrap for email or non-email with white-space: normal
+  let finalHtml;
   if (isForEmail) {
+    // Email-friendly outer wrapper retains padding & typography, now includes white-space
     finalHtml = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000;">
-        ${finalHtml}
+      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000; white-space: normal;">
+        ${innerHtml}
+      </div>
+    `;
+  } else {
+    // Non-email: minimal wrapper that enforces normal wrapping inline
+    finalHtml = `
+      <div style="white-space: normal;">
+        ${innerHtml}
       </div>
     `;
   }
