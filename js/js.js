@@ -42,7 +42,7 @@ function applyLanguageFont(options = {}) {
   const preview = document.getElementById("livePreview");
   const isForEmail = document.getElementById("forEmail").checked;
 
-  preview.querySelectorAll("p, div, td, th, li, span").forEach((el) => {
+  preview.querySelectorAll("p, td, th, li, span").forEach((el) => {
     // Always set font-family (safe, per your spec)
     el.style.fontFamily = selectedFont;
 
@@ -67,10 +67,20 @@ function updateLivePreview() {
     preservedHrs.push({ node: hr.cloneNode(true), index: idx });
   });
 
+  // Capture per-table column widths by document order (robust to CKEditor rewrites)
+  const savedTablePercents = Array.from(preview.querySelectorAll("table")).map(
+    (t) => {
+      // Use the merged-aware reader if available; otherwise fall back to simple reader
+      const perc =
+        typeof readColumnPercentsMerged === "function"
+          ? readColumnPercentsMerged(t)
+          : readColumnPercents(t, getSimpleColumnCount(t)) || [];
+      return { colCount: perc.length, percents: perc };
+    }
+  );
+
   // --- 2) Snapshot styles/classes with a SAFE whitelist ---
-  // Root cause fix: do not blindly restore styles by index across tag types.
-  // Instead, store only allowed properties and reapply only when tag matches.
-  const SAFE_SELECTOR = "td, th, p, span, div, ul, ol, li";
+  const SAFE_SELECTOR = "td, th, p, span, ul, ol, li";
   const NON_TABLE_ALLOWED = new Set([
     "font-family",
     "font-size",
@@ -131,27 +141,25 @@ function updateLivePreview() {
 
   const mergeAllowed = (existingStr, allowedObj) => {
     const existingObj = styleStringToObj(existingStr);
-    // Overwrite only the allowed props
     for (const [k, v] of Object.entries(allowedObj)) {
       existingObj[k] = v;
     }
     const result = objToStyleString(existingObj);
-    return result ? result + ";" : ""; // keep trailing semicolon for consistency
+    return result ? result + ";" : "";
   };
 
   const snapshot = [];
   preview.querySelectorAll(SAFE_SELECTOR).forEach((el) => {
-    const tag = el.tagName; // uppercase
+    const tag = el.tagName;
     const styleObj = styleStringToObj(el.getAttribute("style") || "");
-    const inTable = !!el.closest("table");
     const allowed =
       tag === "TD" || tag === "TH" ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
     const filtered = filterStyle(styleObj, allowed);
 
     snapshot.push({
-      tag, // guard against cross-tag application
-      allowedStyle: filtered, // only safe props
-      classes: el.className || "", // preserve classes
+      tag,
+      allowedStyle: filtered,
+      classes: el.className || "",
     });
   });
 
@@ -171,9 +179,7 @@ function updateLivePreview() {
     const original = snapshot[i];
     if (!original) return;
 
-    // Restore only if the tagName matches (prevents table-cell -> paragraph bleed)
     if (original.tag === el.tagName) {
-      // Merge only the allowed properties for the current context
       const isCell = el.tagName === "TD" || el.tagName === "TH";
       const allowedSet = isCell ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
       const mergedStyle = mergeAllowed(
@@ -182,12 +188,33 @@ function updateLivePreview() {
       );
       if (mergedStyle) el.setAttribute("style", mergedStyle);
 
-      // Restore classes
       if (original.classes) el.className = original.classes;
     }
   });
 
-  // --- 6) Apply table attributes and borders (scoped to tables only) ---
+  // Re-apply saved widths to each table in order; if mismatch, normalize fresh
+  const tablesNow = Array.from(preview.querySelectorAll("table"));
+  tablesNow.forEach((table, i) => {
+    const saved = savedTablePercents[i];
+    if (saved && saved.colCount > 0) {
+      // Apply the exact previous column model (merged-cell aware)
+      if (typeof applyColumnPercentsMerged === "function") {
+        applyColumnPercentsMerged(table, saved.percents);
+      } else {
+        // Simple fallback if you haven't added merged-aware helpers
+        applyColumnPercents(table, saved.percents);
+      }
+    } else {
+      // No prior widths: normalize to 100% now
+      if (typeof ensureTablePercentWidthsMerged === "function") {
+        ensureTablePercentWidthsMerged(table);
+      } else {
+        ensureTablePercentWidths(table);
+      }
+    }
+  });
+
+  // --- 6) Table attributes, borders, width normalization & resizers ---
   preview.querySelectorAll("table").forEach((table) => {
     table.setAttribute("role", "presentation");
     table.setAttribute("cellpadding", "0");
@@ -196,15 +223,24 @@ function updateLivePreview() {
     table.style.border = "1px solid #000000"; // table border only
   });
 
+  // Wrap tables and add wrapper-based, percent-aligned resizers
+  enableColumnResize(preview);
+
   // --- 7) Cell styling + selection handlers (no bleed to non-table tags) ---
-  // Clear old selection references (they point to old nodes)
   selectedCells.forEach((c) => c.classList.remove("selected"));
   selectedCells.clear();
 
+  const paddingTop = document.getElementById("paddingTop").value + "px";
+  const paddingBottom = document.getElementById("paddingBottom").value + "px";
+  const paddingLeft = document.getElementById("paddingLeft").value + "px";
+  const paddingRight = document.getElementById("paddingRight").value + "px";
+
   preview.querySelectorAll("td, th").forEach((cell) => {
-    // Ensure borders/padding only for cells
     cell.style.border = "1px solid #000000";
-    cell.style.padding = "10px";
+    cell.style.paddingTop = paddingTop;
+    cell.style.paddingBottom = paddingBottom;
+    cell.style.paddingLeft = paddingLeft;
+    cell.style.paddingRight = paddingRight;
 
     cell.onclick = (event) => {
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -229,9 +265,8 @@ function updateLivePreview() {
   );
   selectedNonTableElements.clear();
 
-  preview.querySelectorAll("p, span, div, ul, ol, li").forEach((el) => {
-    // Skip elements inside tables entirely
-    if (el.closest("table")) return;
+  preview.querySelectorAll("p, span, ul, ol, li").forEach((el) => {
+    if (el.closest("table")) return; // skip elements inside tables
 
     el.onclick = (event) => {
       event.stopPropagation();
@@ -260,7 +295,7 @@ function updateLivePreview() {
 function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const preview = document.getElementById("livePreview");
   const rawHtml = preview.innerHTML.trim();
-  const cleanedHtml = stripFigureWrapper(rawHtml);
+  const cleanedHtml = stripPreviewWrappers(rawHtml);
 
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
@@ -269,9 +304,11 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const isForEmail = document.getElementById("forEmail").checked;
   const paddingTop = document.getElementById("paddingTop").value + "px";
   const paddingBottom = document.getElementById("paddingBottom").value + "px";
+  const paddingLeft = document.getElementById("paddingLeft").value + "px";
+  const paddingRight = document.getElementById("paddingRight").value + "px";
 
   // ✅ Fonts: only set if not already present
-  temp.querySelectorAll("p, td, th, li, div, span").forEach((el) => {
+  temp.querySelectorAll("p, td, th, li, span").forEach((el) => {
     if (!el.style.fontFamily) el.style.fontFamily = selectedFont;
     if (!el.style.fontSize) el.style.fontSize = fontSize;
   });
@@ -347,6 +384,22 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const codeBlock = document.getElementById("htmlCodeBlock");
   codeBlock.textContent = formattedHtml;
   Prism.highlightElement(codeBlock);
+
+  // ✅ Ensure <td>/<th> carry width attribute mirroring inline percent (helps Outlook)
+  // ✅ Ensure <td>/<th> have merged-aware widths for email output
+  if (isForEmail) {
+    Array.from(temp.querySelectorAll("table")).forEach((table) => {
+      const { colCount } = computeTableStructure(table);
+      if (colCount <= 0) return;
+
+      // Read current columns (from any row), normalize, and re-apply
+      const percents = readColumnPercentsMerged(table);
+      applyColumnPercentsMerged(table, percents);
+
+      table.style.width = "100%";
+      table.setAttribute("width", "100%");
+    });
+  }
 }
 
 // New function to insert <hr> tag
@@ -405,6 +458,8 @@ function applyCellStyle() {
 
   const paddingTop = document.getElementById("paddingTop").value + "px";
   const paddingBottom = document.getElementById("paddingBottom").value + "px";
+  const paddingLeft = document.getElementById("paddingLeft").value + "px";
+  const paddingRight = document.getElementById("paddingRight").value + "px";
 
   const textAlign = document.getElementById("textAlign").value;
   const selectedLang = document.getElementById("languageSelector").value;
@@ -421,6 +476,8 @@ function applyCellStyle() {
         cell.style.backgroundColor = bgColor;
         cell.style.paddingTop = paddingTop;
         cell.style.paddingBottom = paddingBottom;
+        cell.style.paddingLeft = paddingLeft;
+        cell.style.paddingRight = paddingRight;
         cell.style.textAlign = textAlign;
         cell.style.fontFamily = selectedFont;
       }
@@ -434,6 +491,7 @@ function applyCellStyle() {
       el.style.color = textColor;
       el.style.marginTop = paddingTop; // Use margin instead
       el.style.marginBottom = paddingBottom;
+      el.style.marginLeft = paddingLeft;
       el.style.padding = "0"; // Force padding to zero
       el.style.textAlign = textAlign;
       el.style.fontFamily = selectedFont;
@@ -513,13 +571,22 @@ function copyHTML() {
     });
 }
 
-function stripFigureWrapper(html) {
+function stripPreviewWrappers(html) {
   const temp = document.createElement("div");
   temp.innerHTML = html;
+
+  // Remove CKEditor figure wrappers (existing behavior)
   temp.querySelectorAll("figure.table").forEach((figure) => {
     const table = figure.querySelector("table");
     if (table) figure.replaceWith(table);
   });
+
+  // NEW: remove preview-only wrappers used for draggable resizers
+  temp.querySelectorAll("div.table-resize-wrap").forEach((wrap) => {
+    const table = wrap.querySelector("table");
+    if (table) wrap.replaceWith(table);
+  });
+
   return temp.innerHTML;
 }
 
@@ -537,3 +604,332 @@ function formatHtml(html) {
 
   return result;
 }
+
+// Live re-render when the Email checkbox toggles (no CKEditor involved)
+document.getElementById("forEmail")?.addEventListener("change", () => {
+  const selectedLang = document.getElementById("languageSelector").value;
+  const selectedFont = fontMap[selectedLang] || fontMap["en"];
+  updateHtmlOutput(selectedFont);
+});
+
+// --- Column width helpers: normalize, read, apply ---
+function getSimpleColumnCount(table) {
+  const firstRow = table.querySelector("tr");
+  if (!firstRow) return 0;
+  const cells = Array.from(firstRow.children).filter(
+    (c) => c.tagName === "TD" || c.tagName === "TH"
+  );
+  // Simple tables only (no merged cells)
+  if (
+    cells.some(
+      (c) => (c.colSpan && c.colSpan > 1) || (c.rowSpan && c.rowSpan > 1)
+    )
+  )
+    return 0;
+  return cells.length;
+}
+
+function readColumnPercentsMerged(table) {
+  const { colCount, grid } = computeTableStructure(table);
+  if (colCount <= 0) return [];
+
+  // Initialize with NaN; we’ll fill from any % widths we can find
+  const colPcts = Array(colCount).fill(NaN);
+
+  // Sweep rows: if a cell has % width, distribute evenly across its covered columns
+  grid.forEach((rowInfo) => {
+    rowInfo.forEach(({ cell, colSpan, startCol }) => {
+      const w = (cell.style.width || "").trim();
+      if (w.endsWith("%")) {
+        const n = parseFloat(w);
+        if (Number.isFinite(n)) {
+          const perCol = n / colSpan;
+          for (let i = 0; i < colSpan; i++) {
+            const idx = startCol + i;
+            // Only fill unknown columns; first writer wins
+            if (!Number.isFinite(colPcts[idx])) colPcts[idx] = perCol;
+          }
+        }
+      }
+    });
+  });
+
+  // Any still-unknown columns share the remainder equally
+  const knownTotal = colPcts.reduce(
+    (s, v) => s + (Number.isFinite(v) ? v : 0),
+    0
+  );
+  const unknownIdxs = colPcts
+    .map((v, i) => (!Number.isFinite(v) ? i : -1))
+    .filter((i) => i >= 0);
+
+  const remaining = Math.max(0, 100 - knownTotal);
+  const fill = unknownIdxs.length ? remaining / unknownIdxs.length : 0;
+  unknownIdxs.forEach((i) => (colPcts[i] = fill));
+
+  return normalizePercentsTo100(colPcts);
+}
+
+function applyColumnPercentsMerged(table, colPercents) {
+  const { grid } = computeTableStructure(table);
+
+  table.style.tableLayout = "fixed";
+  table.style.width = "100%";
+
+  // For each cell, set width to the sum of its covered columns
+  grid.forEach((rowInfo) => {
+    rowInfo.forEach(({ cell, colSpan, startCol }) => {
+      const spanPct = colPercents
+        .slice(startCol, startCol + colSpan)
+        .reduce((a, b) => a + b, 0);
+
+      const pctStr = spanPct.toFixed(4) + "%";
+      cell.style.width = pctStr;
+      // Attribute helps some Outlook engines; harmless elsewhere
+      cell.setAttribute("width", spanPct.toFixed(2) + "%");
+    });
+  });
+}
+
+function ensureTablePercentWidthsMerged(table) {
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+
+  const { colCount } = computeTableStructure(table);
+  if (colCount <= 0) {
+    table.setAttribute("data-resize-disabled", "true");
+    return null;
+  }
+
+  const percents = readColumnPercentsMerged(table);
+  applyColumnPercentsMerged(table, percents);
+  table.removeAttribute("data-resize-disabled");
+  return percents;
+}
+
+// --- Wrapper helpers (resizers live on the wrapper for valid/clickable DOM) ---
+function wrapTableIfNeeded(table) {
+  if (
+    table.parentElement &&
+    table.parentElement.classList.contains("table-resize-wrap")
+  ) {
+    return table.parentElement;
+  }
+  const wrapper = document.createElement("div");
+  wrapper.className = "table-resize-wrap";
+  wrapper.style.position = "relative";
+  wrapper.style.width = "100%";
+
+  table.parentNode.insertBefore(wrapper, table);
+  wrapper.appendChild(table);
+  return wrapper;
+}
+
+function clearExistingResizersOnWrapper(wrapper) {
+  wrapper.querySelectorAll(":scope > .col-resizer").forEach((h) => h.remove());
+}
+
+// --- Percent-based positioning (exactly on boundaries) ---
+function getCurrentPercentsMerged(table) {
+  return readColumnPercentsMerged(table);
+}
+
+function getWrapperInnerWidth(wrapper) {
+  return wrapper.clientWidth;
+}
+
+function percentBoundaryToLeftPx(wrapper, cumulativePercent) {
+  const w = getWrapperInnerWidth(wrapper);
+  return (cumulativePercent / 100) * w;
+}
+
+function refreshResizerPositions(wrapper, table) {
+  const handles = Array.from(wrapper.querySelectorAll(":scope > .col-resizer"));
+  if (!handles.length) return;
+
+  const colPcts = getCurrentPercentsMerged(table);
+  if (colPcts.length < 2) return;
+
+  // Compute cumulative boundaries: after each column except the last
+  const boundariesPct = [];
+  let acc = 0;
+  for (let i = 0; i < colPcts.length - 1; i++) {
+    acc += colPcts[i];
+    boundariesPct.push(acc);
+  }
+
+  // Position each handle based on its boundary index
+  handles.forEach((h) => {
+    const boundaryIdx = parseInt(h.dataset.boundary, 10);
+    const pct = boundariesPct[boundaryIdx];
+    const leftPx = percentBoundaryToLeftPx(wrapper, pct);
+    h.style.left = `${leftPx - 4}px`; // 8px handle centered on boundary
+    h.style.top = "0";
+    h.style.height = wrapper.clientHeight + "px";
+  });
+}
+
+// --- Create one grip per internal boundary on the wrapper ---
+function makeWrapperHandle(wrapper, table, boundaryIdx) {
+  const h = document.createElement("div");
+  h.className = "col-resizer";
+  h.dataset.boundary = String(boundaryIdx);
+  Object.assign(h.style, {
+    position: "absolute",
+    left: "0",
+    top: "0",
+    width: "8px",
+    height: wrapper.clientHeight + "px",
+    cursor: "col-resize",
+    zIndex: "1000",
+    background: "transparent",
+    userSelect: "none",
+  });
+
+  let startX = 0;
+  let startPercents = null;
+  const minPct = 5; // per-column minimum
+
+  const onMouseMove = (e) => {
+    const dx = e.clientX - startX;
+    const wrapperW = getWrapperInnerWidth(wrapper);
+    const deltaPct = (dx / wrapperW) * 100;
+
+    // Adjust the two adjacent columns around this boundary
+    const idx = boundaryIdx;
+    const next = startPercents.slice();
+    const sumPair = startPercents[idx] + startPercents[idx + 1];
+
+    let newLeft = Math.max(minPct, startPercents[idx] + deltaPct);
+    newLeft = Math.min(newLeft, sumPair - minPct);
+    const newRight = sumPair - newLeft;
+
+    next[idx] = newLeft;
+    next[idx + 1] = newRight;
+
+    applyColumnPercentsMerged(table, next);
+    refreshResizerPositions(wrapper, table);
+  };
+
+  const onMouseUp = () => {
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+
+    // Sync export after resizing
+    const selectedLang = document.getElementById("languageSelector").value;
+    const selectedFont = fontMap[selectedLang] || fontMap["en"];
+    updateHtmlOutput(selectedFont);
+  };
+
+  h.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startPercents = getCurrentPercentsMerged(table);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
+
+  wrapper.appendChild(h);
+  return h;
+}
+
+// --- One canonical entry point to enable column resize in preview ---
+function enableColumnResize(preview) {
+  preview.querySelectorAll("table").forEach((table) => {
+    const colPercents = ensureTablePercentWidthsMerged(table); // normalize & 100%
+    const { colCount, grid } = computeTableStructure(table);
+
+    const wrapper = wrapTableIfNeeded(table);
+    clearExistingResizersOnWrapper(wrapper);
+
+    if (colCount > 1 && colPercents) {
+      const visible = computeVisibleBoundaries(grid, colCount);
+      for (let i = 0; i < colCount - 1; i++) {
+        if (visible[i]) {
+          makeWrapperHandle(wrapper, table, i);
+        }
+        // If you prefer to allow dragging even when the boundary is fully covered
+        // by row-spanning cells, drop the 'if (visible[i])' and always create.
+      }
+    }
+
+    // Position grips now and after layout
+    refreshResizerPositions(wrapper, table);
+    requestAnimationFrame(() => refreshResizerPositions(wrapper, table));
+
+    // Keep aligned on window resize
+    const onWinResize = () => refreshResizerPositions(wrapper, table);
+    window.addEventListener("resize", onWinResize, { passive: true });
+  });
+}
+
+// --- Merged-cells aware table structure -------------------------------------
+function computeTableStructure(table) {
+  // Returns { colCount, grid }
+  // grid[rowIndex] = [{ cell, colSpan, rowSpan, startCol, endCol }, ...]
+  const rows = Array.from(table.rows);
+  let colCount = 0;
+  const grid = [];
+
+  // Tracks how many more rows a given column is occupied by a rowspan from above
+  let rowSpanLeft = [];
+
+  rows.forEach((row, rIdx) => {
+    const rowCells = Array.from(row.cells);
+    const rowInfo = [];
+    let colIndex = 0;
+
+    // Decrement rowSpanLeft at start of each row to advance rowspan occupancy
+    rowSpanLeft = rowSpanLeft.map((v) => Math.max(0, v - 1));
+
+    rowCells.forEach((cell) => {
+      // Find next free column index (skip columns still occupied by rowSpan)
+      while (rowSpanLeft[colIndex] > 0) colIndex++;
+
+      const cs = Math.max(1, cell.colSpan || 1);
+      const rs = Math.max(1, cell.rowSpan || 1);
+      const startCol = colIndex;
+      const endCol = startCol + cs - 1;
+
+      rowInfo.push({ cell, colSpan: cs, rowSpan: rs, startCol, endCol });
+
+      // Mark columns covered by this cell as occupied for subsequent rows
+      if (rs > 1) {
+        for (let c = startCol; c <= endCol; c++) {
+          rowSpanLeft[c] = (rowSpanLeft[c] || 0) + (rs - 1);
+        }
+      }
+
+      colIndex += cs;
+    });
+
+    grid.push(rowInfo);
+    colCount = Math.max(colCount, colIndex);
+  });
+
+  return { colCount, grid };
+}
+
+// Boundaries that are "visible" (at least one row has a cell ending here)
+function computeVisibleBoundaries(grid, colCount) {
+  const visible = Array(Math.max(0, colCount - 1)).fill(false);
+  grid.forEach((rowInfo) => {
+    rowInfo.forEach(({ endCol }) => {
+      if (endCol < colCount - 1) visible[endCol] = true;
+    });
+  });
+  return visible;
+}
+
+// Normalize an array of numbers to sum to 100 (guarding floats)
+function normalizePercentsTo100(pcts) {
+  const total = pcts.reduce((a, b) => a + b, 0) || 1;
+  const scaled = pcts.map((p) => (p * 100) / total);
+  // Final tiny correction so sum === 100.0000
+  const diff = 100 - scaled.reduce((a, b) => a + b, 0);
+  scaled[scaled.length - 1] += diff;
+  return scaled;
+}
+
+//Latest Update: October 2025
+// Added function to edit the padding, width, and made the is for email checkbox update the preview live.
