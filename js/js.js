@@ -931,5 +931,5 @@ function normalizePercentsTo100(pcts) {
   return scaled;
 }
 
-//Latest Update: October 2025
+//Latest Update: October 29, 2025
 // Added function to edit the padding, width, and made the is for email checkbox update the preview live.
