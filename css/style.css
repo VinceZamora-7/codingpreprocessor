@@ -81,7 +81,7 @@ input[type="color"] {
 }
 .selected-non-table {
   outline: 1px solid #0078d4; /* Microsoft blue */
-  background-color: #e6f4ff; /* Light blue background */
+  background-color: #ffffff; /* Light blue background */
 }
 .selected-non-table {
   box-shadow: 0 0 0 2px #0078d4 inset;
@@ -148,6 +148,12 @@ input[type="color"] {
 }
 .padding-bottom {
   transform: rotate(180deg);
+}
+.padding-left {
+  transform: rotate(270deg);
+}
+.padding-right {
+  transform: rotate(90deg);
 }
 .ck-toolbar {
   border: 1px solid #ccc;
