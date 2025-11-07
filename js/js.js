@@ -357,7 +357,7 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   if (isForEmail) {
     // Email-friendly outer wrapper retains padding & typography, now includes white-space
     finalHtml = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-size: ${fontSize}; font-family: ${selectedFont}; color: #000000; white-space: normal;">
+      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-family: ${selectedFont}; color: #000000; white-space: normal;" padding="40px 30px">
         ${innerHtml}
       </div>
     `;
@@ -931,5 +931,5 @@ function normalizePercentsTo100(pcts) {
   return scaled;
 }
 
-//Latest Update: October 29, 2025
-// Added function to edit the padding, width, and made the is for email checkbox update the preview live.
+// Latest Update: November 7, 2025
+// Changed the padding for the is for email wrapper
