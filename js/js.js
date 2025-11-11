@@ -20,6 +20,8 @@ ClassicEditor.create(document.querySelector("#editor"), {
     "|",
     "undo",
     "redo",
+    "indent",
+    "outdent",
   ],
   placeholder: "Paste content here...",
 })
@@ -45,6 +47,7 @@ function applyLanguageFont(options = {}) {
   preview.querySelectorAll("p, td, th, li, span").forEach((el) => {
     // Always set font-family (safe, per your spec)
     el.style.fontFamily = selectedFont;
+    el.style.fontSize = fontSize;
 
     // 🛑 Only set font-size if explicitly enabled AND not for email wrapper
     if (applySize && !isForEmail) {
@@ -308,10 +311,9 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const paddingRight = document.getElementById("paddingRight").value + "px";
 
   // ✅ Fonts: only set if not already present
-  temp.querySelectorAll("p, td, th, li, span").forEach((el) => {
-    if (!el.style.fontFamily) el.style.fontFamily = selectedFont;
-    if (!el.style.fontSize) el.style.fontSize = fontSize;
-  });
+  // temp.querySelectorAll("p, td, th, li, span").forEach((el) => {
+  //   if (!el.style.fontSize) el.style.fontSize = fontSize;
+  // });
 
   // ✅ Links: only set if missing
   temp.querySelectorAll("a").forEach((link) => {
@@ -606,10 +608,15 @@ function formatHtml(html) {
 }
 
 // Live re-render when the Email checkbox toggles (no CKEditor involved)
-document.getElementById("forEmail")?.addEventListener("change", () => {
-  const selectedLang = document.getElementById("languageSelector").value;
-  const selectedFont = fontMap[selectedLang] || fontMap["en"];
-  updateHtmlOutput(selectedFont);
+// ✅ Update font-size input when Email checkbox changes
+document.getElementById("forEmail").addEventListener("change", () => {
+  const fontSizeInput = document.getElementById("fontSize");
+  const isForEmail = document.getElementById("forEmail").checked;
+
+  fontSizeInput.value = isForEmail ? 12 : 13.5;
+
+  // Optional: immediately apply to preview and HTML output
+  applyLanguageFont({ applySize: true });
 });
 
 // --- Column width helpers: normalize, read, apply ---
@@ -931,5 +938,5 @@ function normalizePercentsTo100(pcts) {
   return scaled;
 }
 
-// Latest Update: November 7, 2025
-// Changed the padding for the is for email wrapper
+//Latest Update: November 2025
+// Added function to edit the padding, width, and made the is for email checkbox update the preview live.
