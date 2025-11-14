@@ -359,8 +359,21 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   if (isForEmail) {
     // Email-friendly outer wrapper retains padding & typography, now includes white-space
     finalHtml = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 30px; font-family: ${selectedFont}; color: #000000; white-space: normal;" padding="40px 30px">
-        ${innerHtml}
+      <div style="margin: 0px; line-height:24px; padding: 40px 60px; font-family: ${selectedFont}; color: #000000; white-space: normal;" padding="40px 30px">
+        <table width="100%" cellspacing="0" cellpadding="0" border="0">
+  <tbody>
+    <tr>
+      <td bgcolor="#ffffff" align="center"
+        style="line-height: 24px; padding-top:40px; padding-bottom:40px; padding-left: 30px; padding-right:30px; text-align:left; letter-spacing:0.0em;"
+        class="mobile-side-padding-20">
+        <p
+          style="Margin:0; padding:0; mso-line-height-rule:exactly; line-height: 24px; text-align:left; letter-spacing:0.0em;">  
+      ${innerHtml}
+      </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
       </div>
     `;
   } else {
@@ -494,6 +507,7 @@ function applyCellStyle() {
       el.style.marginTop = paddingTop; // Use margin instead
       el.style.marginBottom = paddingBottom;
       el.style.marginLeft = paddingLeft;
+      el.style.marginRight = paddingRight;
       el.style.padding = "0"; // Force padding to zero
       el.style.textAlign = textAlign;
       el.style.fontFamily = selectedFont;
@@ -938,5 +952,5 @@ function normalizePercentsTo100(pcts) {
   return scaled;
 }
 
-//Latest Update: November 2025
-// Added function to edit the padding, width, and made the is for email checkbox update the preview live.
+//Latest Update: November 14, 2025
+// Updated the custom code for email coding.
