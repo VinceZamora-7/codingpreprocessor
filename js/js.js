@@ -1,3 +1,4 @@
+
 let editorInstance;
 let selectedCells = new Set(); // This will store the selected cells
 let selectedNonTableElements = new Set(); // Store multiple non-table elements
@@ -7,6 +8,97 @@ const fontMap = {
   ja: "'Yu Gothic', sans-serif",
   ko: "'Malgun Gothic', sans-serif",
 };
+
+// --- Tab-to-spaces settings ---
+const TAB_SIZE = 4; // how many spaces to insert when pressing Tab / clicking Tab button
+const TAB_STRING = " ".repeat(TAB_SIZE);
+
+/**
+ * Insert TAB_STRING spaces at the caret (or replace selected text) in CKEditor model.
+ */
+function insertTabSpaces(editor) {
+  editor.model.change((writer) => {
+    const selection = editor.model.document.selection;
+
+    // Replace selection if highlighted
+    if (!selection.isCollapsed) {
+      editor.model.deleteContent(selection);
+    }
+
+    // Insert spaces at caret
+    const insertPos = selection.getFirstPosition();
+    writer.insertText(TAB_STRING, insertPos);
+  });
+
+  // Keep focus inside the editor after clicking toolbar button
+  editor.editing.view.focus();
+}
+
+/**
+ * Enable Tab key to insert spaces inside CKEditor instead of moving focus.
+ * - Tab: inserts spaces
+ * - Shift+Tab: currently prevented (does nothing)
+ *   If you want CKEditor's default outdent for Shift+Tab, replace the Shift+Tab block with `return;`
+ */
+function enableTabToSpaces(editor) {
+  editor.editing.view.document.on("keydown", (evt, data) => {
+    if (data.keyCode !== 9) return; // 9 = Tab
+
+    // Shift+Tab behavior:
+    // If you want default outdent behavior, comment out the block below and just `return;`.
+    if (data.shiftKey) {
+      data.preventDefault();
+      evt.stop();
+      return;
+    }
+
+    data.preventDefault();
+    evt.stop();
+
+    insertTabSpaces(editor);
+  });
+}
+
+/**
+ * Add a visible "Tab" button to CKEditor toolbar that inserts spaces.
+ * This works with the CDN Classic build by directly appending a CKEditor-styled button element.
+ */
+
+function addTabSpacesToolbarButton(editor) {
+  const toolbarEl = editor.ui.view.toolbar.element;
+  if (!toolbarEl) return;
+
+  // Avoid adding twice
+  if (toolbarEl.querySelector("[data-tab-spaces-btn='true']")) return;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "ck ck-button ck-off";
+  btn.setAttribute("title", "Insert tab spaces");
+  btn.setAttribute("aria-label", "Insert tab spaces");
+  btn.setAttribute("data-tab-spaces-btn", "true");
+
+  // ✅ Give it a real SVG icon so it doesn't appear blank
+  btn.innerHTML = `
+    <span class="ck ck-icon ck-button__icon" aria-hidden="true">
+      <svg viewBox="0 0 20 20">
+        <path d="M3 4h9v2H3V4zm0 5h9v2H3V9zm0 5h9v2H3v-2zm10.5-1.5V11H8v-2h5.5V7.5L17 10l-3.5 2.5z"/>
+      </svg>
+    </span>
+  `;
+
+  btn.addEventListener("click", () => {
+    insertTabSpaces(editor);
+  });
+
+  const toolbarItems = toolbarEl.querySelector(".ck-toolbar__items");
+  if (toolbarItems) {
+    toolbarItems.appendChild(btn);
+  } else {
+    toolbarEl.appendChild(btn);
+  }
+}
+
 
 ClassicEditor.create(document.querySelector("#editor"), {
   toolbar: [
@@ -22,11 +114,19 @@ ClassicEditor.create(document.querySelector("#editor"), {
     "redo",
     "indent",
     "outdent",
+    "tabIndent",
   ],
   placeholder: "Paste content here...",
 })
   .then((editor) => {
     editorInstance = editor;
+
+    // ✅ Tab key inserts spaces
+    enableTabToSpaces(editor);
+
+    // ✅ Add visible Tab button in toolbar
+    addTabSpacesToolbarButton(editor);
+
     editor.model.document.on("change:data", () => updateLivePreview());
     enableHrRemoval(); // Attach delegated listener
   })
@@ -49,7 +149,7 @@ function applyLanguageFont(options = {}) {
     el.style.fontFamily = selectedFont;
     el.style.fontSize = fontSize;
 
-    // 🛑 Only set font-size if explicitly enabled AND not for email wrapper
+    // 🚫 Only set font-size if explicitly enabled AND not for email wrapper
     if (applySize && !isForEmail) {
       // Respect existing inline sizes: set only if missing
       if (!el.style.fontSize) el.style.fontSize = fontSize;
@@ -84,6 +184,7 @@ function updateLivePreview() {
 
   // --- 2) Snapshot styles/classes with a SAFE whitelist ---
   const SAFE_SELECTOR = "td, th, p, span, ul, ol, li";
+
   const NON_TABLE_ALLOWED = new Set([
     "font-family",
     "font-size",
@@ -93,6 +194,7 @@ function updateLivePreview() {
     "margin-top",
     "margin-bottom",
   ]);
+
   const TABLE_CELL_ALLOWED = new Set([
     "font-family",
     "font-size",
@@ -155,8 +257,7 @@ function updateLivePreview() {
   preview.querySelectorAll(SAFE_SELECTOR).forEach((el) => {
     const tag = el.tagName;
     const styleObj = styleStringToObj(el.getAttribute("style") || "");
-    const allowed =
-      tag === "TD" || tag === "TH" ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
+    const allowed = tag === "TD" || tag === "TH" ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
     const filtered = filterStyle(styleObj, allowed);
 
     snapshot.push({
@@ -185,12 +286,13 @@ function updateLivePreview() {
     if (original.tag === el.tagName) {
       const isCell = el.tagName === "TD" || el.tagName === "TH";
       const allowedSet = isCell ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
+
       const mergedStyle = mergeAllowed(
         el.getAttribute("style") || "",
         filterStyle(original.allowedStyle, allowedSet)
       );
-      if (mergedStyle) el.setAttribute("style", mergedStyle);
 
+      if (mergedStyle) el.setAttribute("style", mergedStyle);
       if (original.classes) el.className = original.classes;
     }
   });
@@ -263,9 +365,7 @@ function updateLivePreview() {
   });
 
   // --- 8) Non-table element selection handlers ---
-  selectedNonTableElements.forEach((e) =>
-    e.classList.remove("selected-non-table")
-  );
+  selectedNonTableElements.forEach((e) => e.classList.remove("selected-non-table"));
   selectedNonTableElements.clear();
 
   preview.querySelectorAll("p, span, ul, ol, li").forEach((el) => {
@@ -273,6 +373,7 @@ function updateLivePreview() {
 
     el.onclick = (event) => {
       event.stopPropagation();
+
       if (event.ctrlKey || event.metaKey || event.shiftKey) {
         el.classList.toggle("selected-non-table");
         if (el.classList.contains("selected-non-table")) {
@@ -281,9 +382,7 @@ function updateLivePreview() {
           selectedNonTableElements.delete(el);
         }
       } else {
-        selectedNonTableElements.forEach((e) =>
-          e.classList.remove("selected-non-table")
-        );
+        selectedNonTableElements.forEach((e) => e.classList.remove("selected-non-table"));
         selectedNonTableElements.clear();
         el.classList.add("selected-non-table");
         selectedNonTableElements.add(el);
@@ -299,7 +398,6 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const preview = document.getElementById("livePreview");
   const rawHtml = preview.innerHTML.trim();
   const cleanedHtml = stripPreviewWrappers(rawHtml);
-
   const temp = document.createElement("div");
   temp.innerHTML = cleanedHtml;
 
@@ -309,11 +407,6 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   const paddingBottom = document.getElementById("paddingBottom").value + "px";
   const paddingLeft = document.getElementById("paddingLeft").value + "px";
   const paddingRight = document.getElementById("paddingRight").value + "px";
-
-  // ✅ Fonts: only set if not already present
-  // temp.querySelectorAll("p, td, th, li, span").forEach((el) => {
-  //   if (!el.style.fontSize) el.style.fontSize = fontSize;
-  // });
 
   // ✅ Links: only set if missing
   temp.querySelectorAll("a").forEach((link) => {
@@ -357,27 +450,25 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   // ✅ Wrap for email or non-email with white-space: normal
   let finalHtml;
   if (isForEmail) {
-    // Email-friendly outer wrapper retains padding & typography, now includes white-space
     finalHtml = `
       <div style="margin: 0px; line-height:24px; padding: 40px 60px; font-family: ${selectedFont}; color: #000000; white-space: normal;" padding="40px 30px">
         <table width="100%" cellspacing="0" cellpadding="0" border="0">
-  <tbody>
-    <tr>
-      <td bgcolor="#ffffff" align="center"
-        style="line-height: 24px; padding-top:40px; padding-bottom:40px; padding-left: 30px; padding-right:30px; text-align:left; letter-spacing:0.0em;"
-        class="mobile-side-padding-20">
-        <p
-          style="Margin:0; padding:0; mso-line-height-rule:exactly; line-height: 24px; text-align:left; letter-spacing:0.0em;">  
-      ${innerHtml}
-      </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
+          <tbody>
+            <tr>
+              <td bgcolor="#ffffff" align="center"
+                style="line-height: 24px; padding-top:40px; padding-bottom:40px; padding-left: 30px; padding-right:30px; text-align:left; letter-spacing:0.0em;"
+                class="mobile-side-padding-20">
+                <p
+                  style="Margin:0; padding:0; mso-line-height-rule:exactly; line-height: 24px; text-align:left; letter-spacing:0.0em;">
+                  ${innerHtml}
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     `;
   } else {
-    // Non-email: minimal wrapper that enforces normal wrapping inline
     finalHtml = `
       <div style="white-space: normal;">
         ${innerHtml}
@@ -386,8 +477,9 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   }
 
   // ✅ Format and clean up HTML
-  let formattedHtml = formatHtml(finalHtml).replace(/&quot;/g, "'");
+  let formattedHtml = formatHtml(finalHtml).replace(/"/g, "'");
   const removable = ["<", ">", '"', "'"];
+
   if (removable.includes(formattedHtml.charAt(0))) {
     formattedHtml = formattedHtml.substring(1);
   }
@@ -400,17 +492,14 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   codeBlock.textContent = formattedHtml;
   Prism.highlightElement(codeBlock);
 
-  // ✅ Ensure <td>/<th> carry width attribute mirroring inline percent (helps Outlook)
   // ✅ Ensure <td>/<th> have merged-aware widths for email output
   if (isForEmail) {
     Array.from(temp.querySelectorAll("table")).forEach((table) => {
       const { colCount } = computeTableStructure(table);
       if (colCount <= 0) return;
 
-      // Read current columns (from any row), normalize, and re-apply
       const percents = readColumnPercentsMerged(table);
       applyColumnPercentsMerged(table, percents);
-
       table.style.width = "100%";
       table.setAttribute("width", "100%");
     });
@@ -441,7 +530,6 @@ function enableHrRemoval() {
   preview.addEventListener("click", (event) => {
     if (event.target.tagName === "HR") {
       event.target.remove(); // Remove clicked <hr>
-
       const selectedLang = document.getElementById("languageSelector").value;
       const selectedFont = fontMap[selectedLang] || fontMap["en"];
       updateHtmlOutput(selectedFont); // Update HTML after removal
@@ -470,16 +558,14 @@ function applyCellStyle() {
   const fontSize = document.getElementById("fontSize").value + "pt";
   const textColor = document.getElementById("textColor").value;
   const bgColor = document.getElementById("bgColor").value;
-
   const paddingTop = document.getElementById("paddingTop").value + "px";
   const paddingBottom = document.getElementById("paddingBottom").value + "px";
   const paddingLeft = document.getElementById("paddingLeft").value + "px";
   const paddingRight = document.getElementById("paddingRight").value + "px";
-
   const textAlign = document.getElementById("textAlign").value;
+
   const selectedLang = document.getElementById("languageSelector").value;
   const selectedFont = fontMap[selectedLang] || fontMap["en"];
-
   const preview = document.getElementById("livePreview");
 
   // Apply styles to selected table cells (only if margin is 0)
@@ -555,7 +641,6 @@ function clearCellStyle() {
 
 function copyHTML() {
   const content = document.getElementById("htmlCodeBlock").textContent.trim();
-
   const successCopy = document.getElementById("successCopy");
   const failedCopy = document.getElementById("failedCopy");
 
@@ -607,7 +692,7 @@ function stripPreviewWrappers(html) {
 }
 
 function formatHtml(html) {
-  const tab = "  "; // Use two spaces for indentation
+  const tab = " "; // Use two spaces for indentation
   let result = "";
   let indent = "";
 
@@ -637,16 +722,21 @@ document.getElementById("forEmail").addEventListener("change", () => {
 function getSimpleColumnCount(table) {
   const firstRow = table.querySelector("tr");
   if (!firstRow) return 0;
+
   const cells = Array.from(firstRow.children).filter(
     (c) => c.tagName === "TD" || c.tagName === "TH"
   );
+
   // Simple tables only (no merged cells)
   if (
     cells.some(
-      (c) => (c.colSpan && c.colSpan > 1) || (c.rowSpan && c.rowSpan > 1)
+      (c) =>
+        (c.colSpan && c.colSpan > 1) ||
+        (c.rowSpan && c.rowSpan > 1)
     )
   )
     return 0;
+
   return cells.length;
 }
 
@@ -680,6 +770,7 @@ function readColumnPercentsMerged(table) {
     (s, v) => s + (Number.isFinite(v) ? v : 0),
     0
   );
+
   const unknownIdxs = colPcts
     .map((v, i) => (!Number.isFinite(v) ? i : -1))
     .filter((i) => i >= 0);
@@ -706,6 +797,7 @@ function applyColumnPercentsMerged(table, colPercents) {
 
       const pctStr = spanPct.toFixed(4) + "%";
       cell.style.width = pctStr;
+
       // Attribute helps some Outlook engines; harmless elsewhere
       cell.setAttribute("width", spanPct.toFixed(2) + "%");
     });
@@ -724,6 +816,7 @@ function ensureTablePercentWidthsMerged(table) {
 
   const percents = readColumnPercentsMerged(table);
   applyColumnPercentsMerged(table, percents);
+
   table.removeAttribute("data-resize-disabled");
   return percents;
 }
@@ -736,6 +829,7 @@ function wrapTableIfNeeded(table) {
   ) {
     return table.parentElement;
   }
+
   const wrapper = document.createElement("div");
   wrapper.className = "table-resize-wrap";
   wrapper.style.position = "relative";
@@ -743,11 +837,14 @@ function wrapTableIfNeeded(table) {
 
   table.parentNode.insertBefore(wrapper, table);
   wrapper.appendChild(table);
+
   return wrapper;
 }
 
 function clearExistingResizersOnWrapper(wrapper) {
-  wrapper.querySelectorAll(":scope > .col-resizer").forEach((h) => h.remove());
+  wrapper
+    .querySelectorAll(":scope > .col-resizer")
+    .forEach((h) => h.remove());
 }
 
 // --- Percent-based positioning (exactly on boundaries) ---
@@ -765,7 +862,9 @@ function percentBoundaryToLeftPx(wrapper, cumulativePercent) {
 }
 
 function refreshResizerPositions(wrapper, table) {
-  const handles = Array.from(wrapper.querySelectorAll(":scope > .col-resizer"));
+  const handles = Array.from(
+    wrapper.querySelectorAll(":scope > .col-resizer")
+  );
   if (!handles.length) return;
 
   const colPcts = getCurrentPercentsMerged(table);
@@ -784,6 +883,7 @@ function refreshResizerPositions(wrapper, table) {
     const boundaryIdx = parseInt(h.dataset.boundary, 10);
     const pct = boundariesPct[boundaryIdx];
     const leftPx = percentBoundaryToLeftPx(wrapper, pct);
+
     h.style.left = `${leftPx - 4}px`; // 8px handle centered on boundary
     h.style.top = "0";
     h.style.height = wrapper.clientHeight + "px";
@@ -795,6 +895,7 @@ function makeWrapperHandle(wrapper, table, boundaryIdx) {
   const h = document.createElement("div");
   h.className = "col-resizer";
   h.dataset.boundary = String(boundaryIdx);
+
   Object.assign(h.style, {
     position: "absolute",
     left: "0",
@@ -823,8 +924,8 @@ function makeWrapperHandle(wrapper, table, boundaryIdx) {
 
     let newLeft = Math.max(minPct, startPercents[idx] + deltaPct);
     newLeft = Math.min(newLeft, sumPair - minPct);
-    const newRight = sumPair - newLeft;
 
+    const newRight = sumPair - newLeft;
     next[idx] = newLeft;
     next[idx + 1] = newRight;
 
@@ -846,6 +947,7 @@ function makeWrapperHandle(wrapper, table, boundaryIdx) {
     e.preventDefault();
     startX = e.clientX;
     startPercents = getCurrentPercentsMerged(table);
+
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   });
@@ -869,8 +971,6 @@ function enableColumnResize(preview) {
         if (visible[i]) {
           makeWrapperHandle(wrapper, table, i);
         }
-        // If you prefer to allow dragging even when the boundary is fully covered
-        // by row-spanning cells, drop the 'if (visible[i])' and always create.
       }
     }
 
@@ -884,7 +984,7 @@ function enableColumnResize(preview) {
   });
 }
 
-// --- Merged-cells aware table structure -------------------------------------
+// --- Merged-cells aware table structure ---------------------------------------
 function computeTableStructure(table) {
   // Returns { colCount, grid }
   // grid[rowIndex] = [{ cell, colSpan, rowSpan, startCol, endCol }, ...]
@@ -895,7 +995,7 @@ function computeTableStructure(table) {
   // Tracks how many more rows a given column is occupied by a rowspan from above
   let rowSpanLeft = [];
 
-  rows.forEach((row, rIdx) => {
+  rows.forEach((row) => {
     const rowCells = Array.from(row.cells);
     const rowInfo = [];
     let colIndex = 0;
@@ -909,6 +1009,7 @@ function computeTableStructure(table) {
 
       const cs = Math.max(1, cell.colSpan || 1);
       const rs = Math.max(1, cell.rowSpan || 1);
+
       const startCol = colIndex;
       const endCol = startCol + cs - 1;
 
@@ -934,11 +1035,13 @@ function computeTableStructure(table) {
 // Boundaries that are "visible" (at least one row has a cell ending here)
 function computeVisibleBoundaries(grid, colCount) {
   const visible = Array(Math.max(0, colCount - 1)).fill(false);
+
   grid.forEach((rowInfo) => {
     rowInfo.forEach(({ endCol }) => {
       if (endCol < colCount - 1) visible[endCol] = true;
     });
   });
+
   return visible;
 }
 
@@ -946,9 +1049,11 @@ function computeVisibleBoundaries(grid, colCount) {
 function normalizePercentsTo100(pcts) {
   const total = pcts.reduce((a, b) => a + b, 0) || 1;
   const scaled = pcts.map((p) => (p * 100) / total);
+
   // Final tiny correction so sum === 100.0000
   const diff = 100 - scaled.reduce((a, b) => a + b, 0);
   scaled[scaled.length - 1] += diff;
+
   return scaled;
 }
 
