@@ -1,4 +1,3 @@
-
 let editorInstance;
 let selectedCells = new Set(); // This will store the selected cells
 let selectedNonTableElements = new Set(); // Store multiple non-table elements
@@ -99,7 +98,6 @@ function addTabSpacesToolbarButton(editor) {
   }
 }
 
-
 ClassicEditor.create(document.querySelector("#editor"), {
   toolbar: [
     "bold",
@@ -179,7 +177,7 @@ function updateLivePreview() {
           ? readColumnPercentsMerged(t)
           : readColumnPercents(t, getSimpleColumnCount(t)) || [];
       return { colCount: perc.length, percents: perc };
-    }
+    },
   );
 
   // --- 2) Snapshot styles/classes with a SAFE whitelist ---
@@ -257,7 +255,8 @@ function updateLivePreview() {
   preview.querySelectorAll(SAFE_SELECTOR).forEach((el) => {
     const tag = el.tagName;
     const styleObj = styleStringToObj(el.getAttribute("style") || "");
-    const allowed = tag === "TD" || tag === "TH" ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
+    const allowed =
+      tag === "TD" || tag === "TH" ? TABLE_CELL_ALLOWED : NON_TABLE_ALLOWED;
     const filtered = filterStyle(styleObj, allowed);
 
     snapshot.push({
@@ -289,7 +288,7 @@ function updateLivePreview() {
 
       const mergedStyle = mergeAllowed(
         el.getAttribute("style") || "",
-        filterStyle(original.allowedStyle, allowedSet)
+        filterStyle(original.allowedStyle, allowedSet),
       );
 
       if (mergedStyle) el.setAttribute("style", mergedStyle);
@@ -365,7 +364,9 @@ function updateLivePreview() {
   });
 
   // --- 8) Non-table element selection handlers ---
-  selectedNonTableElements.forEach((e) => e.classList.remove("selected-non-table"));
+  selectedNonTableElements.forEach((e) =>
+    e.classList.remove("selected-non-table"),
+  );
   selectedNonTableElements.clear();
 
   preview.querySelectorAll("p, span, ul, ol, li").forEach((el) => {
@@ -382,7 +383,9 @@ function updateLivePreview() {
           selectedNonTableElements.delete(el);
         }
       } else {
-        selectedNonTableElements.forEach((e) => e.classList.remove("selected-non-table"));
+        selectedNonTableElements.forEach((e) =>
+          e.classList.remove("selected-non-table"),
+        );
         selectedNonTableElements.clear();
         el.classList.add("selected-non-table");
         selectedNonTableElements.add(el);
@@ -451,23 +454,14 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   let finalHtml;
   if (isForEmail) {
     finalHtml = `
-      <div style="margin: 0px; line-height:24px; padding: 40px 60px; font-family: ${selectedFont}; color: #000000; white-space: normal;" padding="40px 30px">
-        <table width="100%" cellspacing="0" cellpadding="0" border="0">
-          <tbody>
-            <tr>
-              <td bgcolor="#ffffff" align="center"
-                style="line-height: 24px; padding-top:40px; padding-bottom:40px; padding-left: 30px; padding-right:30px; text-align:left; letter-spacing:0.0em;"
-                class="mobile-side-padding-20">
-                <p
-                  style="Margin:0; padding:0; mso-line-height-rule:exactly; line-height: 24px; text-align:left; letter-spacing:0.0em;">
-                  ${innerHtml}
-                </p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
+ <table width="100%" cellspacing="0" cellpadding="0" border="0">
+  <tr>
+    <td bgcolor="#ffffff" class="mobile-side-padding-20" style=" font-family: ${selectedFont}; font-size: 16px; line-height: 24px; color: #000000; padding: 40px 30px; text-align: left; mso-line-height-rule: exactly;">
+        ${innerHtml}
+    </td>
+  </tr>
+</table>
+`;
   } else {
     finalHtml = `
       <div style="white-space: normal;">
@@ -550,7 +544,7 @@ function convertRgbToHex(styleString) {
           })
           .join("")
       );
-    }
+    },
   );
 }
 
@@ -724,15 +718,13 @@ function getSimpleColumnCount(table) {
   if (!firstRow) return 0;
 
   const cells = Array.from(firstRow.children).filter(
-    (c) => c.tagName === "TD" || c.tagName === "TH"
+    (c) => c.tagName === "TD" || c.tagName === "TH",
   );
 
   // Simple tables only (no merged cells)
   if (
     cells.some(
-      (c) =>
-        (c.colSpan && c.colSpan > 1) ||
-        (c.rowSpan && c.rowSpan > 1)
+      (c) => (c.colSpan && c.colSpan > 1) || (c.rowSpan && c.rowSpan > 1),
     )
   )
     return 0;
@@ -768,7 +760,7 @@ function readColumnPercentsMerged(table) {
   // Any still-unknown columns share the remainder equally
   const knownTotal = colPcts.reduce(
     (s, v) => s + (Number.isFinite(v) ? v : 0),
-    0
+    0,
   );
 
   const unknownIdxs = colPcts
@@ -842,9 +834,7 @@ function wrapTableIfNeeded(table) {
 }
 
 function clearExistingResizersOnWrapper(wrapper) {
-  wrapper
-    .querySelectorAll(":scope > .col-resizer")
-    .forEach((h) => h.remove());
+  wrapper.querySelectorAll(":scope > .col-resizer").forEach((h) => h.remove());
 }
 
 // --- Percent-based positioning (exactly on boundaries) ---
@@ -862,9 +852,7 @@ function percentBoundaryToLeftPx(wrapper, cumulativePercent) {
 }
 
 function refreshResizerPositions(wrapper, table) {
-  const handles = Array.from(
-    wrapper.querySelectorAll(":scope > .col-resizer")
-  );
+  const handles = Array.from(wrapper.querySelectorAll(":scope > .col-resizer"));
   if (!handles.length) return;
 
   const colPcts = getCurrentPercentsMerged(table);
