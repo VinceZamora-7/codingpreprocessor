@@ -679,20 +679,20 @@ function stripPreviewWrappers(html) {
   return temp.innerHTML;
 }
 
-function formatHtml(html) {
-  const tab = " "; // Use two spaces for indentation
-  let result = "";
-  let indent = "";
+// function formatHtml(html) {
+//   // const tab = " "; // Use two spaces for indentation
+//   // let result = "";
+//   // let indent = "";
 
-  html.split(/><(?=\w)/).forEach((element, i) => {
-    if (i > 0) result += "\n"; // Add a new line after each tag
-    if (element.match(/^\/\w/)) indent = indent.substring(tab.length); // Reduce indentation for closing tags
-    result += indent + "<" + element + ">";
-    if (element.match(/^<?\w[^>]*[^\/]$/)) indent += tab; // Increase indentation for opening tags
-  });
+//   // html.split(/><(?=\w)/).forEach((element, i) => {
+//   //   if (i > 0) result += "\n"; // Add a new line after each tag
+//   //   if (element.match(/^\/\w/)) indent = indent.substring(tab.length); // Reduce indentation for closing tags
+//   //   result += indent + "<" + element + ">";
+//   //   if (element.match(/^<?\w[^>]*[^\/]$/)) indent += tab; // Increase indentation for opening tags
+//   // });
 
-  return result;
-}
+//   // return result;
+// }
 
 // Live re-render when the Email checkbox toggles (no CKEditor involved)
 // ✅ Update font-size input when Email checkbox changes
@@ -1041,9 +1041,3 @@ function normalizePercentsTo100(pcts) {
 
 //Latest Update: November 14, 2025
 // Updated the custom code for email coding.
-
-
-
-
-
-
