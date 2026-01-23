@@ -694,6 +694,12 @@ function stripPreviewWrappers(html) {
 //   // return result;
 // }
 
+function formatHtml(html) {
+  // We remove the split/loop logic that was inserting \n and indentation.
+  // This returns the HTML as a clean, single-line string.
+  return html.trim();
+}
+
 // Live re-render when the Email checkbox toggles (no CKEditor involved)
 // ✅ Update font-size input when Email checkbox changes
 document.getElementById("forEmail").addEventListener("change", () => {
