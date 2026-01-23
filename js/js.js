@@ -454,13 +454,7 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   let finalHtml;
   if (isForEmail) {
     finalHtml = `
- <table width="100%" cellspacing="0" cellpadding="0" border="0">
-  <tr>
-    <td bgcolor="#ffffff" class="mobile-side-padding-20" style=" font-family: ${selectedFont}; font-size: 16px; line-height: 24px; color: #000000; padding: 40px 30px; text-align: left; mso-line-height-rule: exactly;">
-        ${innerHtml}
-    </td>
-  </tr>
-</table>
+<table width="100%" cellspacing="0" cellpadding="0" border="0"><tbody><tr><td bgcolor="#ffffff" align="center" style="font-family:'Segoe UI', SUWR, Verdana, sans-serif; font-size:16px; line-height:24px; color:#000000; padding-top:40px; padding-bottom:40px; padding-left:30px; padding-right:30px; text-align:left; letter-spacing:0.0em;" class="mobile-side-padding-20"><p style="Margin:0; padding:0; font-family:${innerHtml}; font-size:16px; mso-line-height-rule:exactly; line-height:24px; color:#000000;text-align:left; letter-spacing:0.0em;"><span style="font-family: &quot;Segoe UI&quot;, Frutiger, &quot;Helvetica Neue&quot;, Arial, sans-serif;font-size: 16px;">${innerHtml}</span></p></td></tr></tbody></table>
 `;
   } else {
     finalHtml = `
