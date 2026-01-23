@@ -433,7 +433,6 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   temp.querySelectorAll("p").forEach((p) => {
     if (!p.style.marginTop) p.style.marginTop = paddingTop;
     if (!p.style.marginBottom) p.style.marginBottom = paddingBottom;
-    // Optional: default wrapping if missing on <p>
     if (!p.style.whiteSpace) p.style.whiteSpace = "normal";
   });
 
@@ -451,29 +450,17 @@ function updateHtmlOutput(selectedFont = fontMap["en"]) {
   let innerHtml = temp.innerHTML;
 
   // ✅ Wrap for email or non-email with white-space: normal
+  // Flattened to single line to prevent unwanted new lines
   let finalHtml;
   if (isForEmail) {
-    finalHtml = `
-<table width='100%' cellspacing='0' cellpadding='0' border='0'><tbody><tr><td bgcolor='#ffffff' class='mobile-side-padding-20 mobile-top-padding-20' style='font-family: ${selectedFont}; font-size: ${fontSize}; line-height: 24px; mso-line-height-rule: exactly; color: #000000; padding: 20px 30px; text-align: left;'>${innerHtml}</td></tr></tbody></table>
-`;
+    finalHtml = `<table width='100%' cellspacing='0' cellpadding='0' border='0'><tbody><tr><td bgcolor='#ffffff' class='mobile-side-padding-20 mobile-top-padding-20' style='font-family: ${selectedFont}; font-size: ${fontSize}; line-height: 24px; mso-line-height-rule: exactly; color: #000000; padding: 20px 30px; text-align: left;'>${innerHtml}</td></tr></tbody></table>`;
   } else {
-    finalHtml = `
-      <div style="white-space: normal;">
-        ${innerHtml}
-      </div>
-    `;
+    finalHtml = `<div style="white-space: normal;">${innerHtml}</div>`;
   }
 
   // ✅ Format and clean up HTML
+  // Removed the 'removable' logic that was stripping < and >
   let formattedHtml = formatHtml(finalHtml).replace(/"/g, "'");
-  const removable = ["<", ">", '"', "'"];
-
-  if (removable.includes(formattedHtml.charAt(0))) {
-    formattedHtml = formattedHtml.substring(1);
-  }
-  if (removable.includes(formattedHtml.charAt(formattedHtml.length - 1))) {
-    formattedHtml = formattedHtml.substring(0, formattedHtml.length - 1);
-  }
 
   // ✅ Output to code block
   const codeBlock = document.getElementById("htmlCodeBlock");
