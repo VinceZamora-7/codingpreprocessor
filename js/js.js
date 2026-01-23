@@ -3,9 +3,9 @@ let selectedCells = new Set(); // This will store the selected cells
 let selectedNonTableElements = new Set(); // Store multiple non-table elements
 
 const fontMap = {
-  en: "'Segoe UI', Arial, sans-serif",
-  ja: "'Yu Gothic', sans-serif",
-  ko: "'Malgun Gothic', sans-serif",
+  en: "&quot;Segoe UI&quot;, Arial, sans-serif",
+  ja: "&quot;Yu Gothic&quot;, sans-serif",
+  ko: "&quot;Malgun Gothic&quot;, sans-serif",
 };
 
 // --- Tab-to-spaces settings ---
@@ -1041,5 +1041,6 @@ function normalizePercentsTo100(pcts) {
 
 //Latest Update: November 14, 2025
 // Updated the custom code for email coding.
+
 
 
