@@ -13,7 +13,7 @@ const TAB_SIZE = 4; // how many spaces to insert when pressing Tab / clicking Ta
 const TAB_STRING = " ".repeat(TAB_SIZE);
 
 /**
- * Insert TAB_STRING spaces at the caret (or replace selected text) in CKEditor model.
+ * Insert TAB_STRING spaces at the caret (or replace selected text) in CKEditor model
  */
 function insertTabSpaces(editor) {
   editor.model.change((writer) => {
@@ -1034,3 +1034,4 @@ function normalizePercentsTo100(pcts) {
 
 //Latest Update: November 14, 2025
 // Updated the custom code for email coding.
+
